@@ -38,7 +38,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    const mod = b.addModule("zephyr_runtime", .{
+    const mod = b.addModule("fusion_runtime", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
     });
@@ -63,7 +63,7 @@ pub fn build(b: *std.Build) void {
     deps.wire(lib_check);
 
     const check_compile = b.addObject(.{
-        .name = "zephyr_runtime_check",
+        .name = "fusion_runtime_check",
         .root_module = lib_check,
     });
 

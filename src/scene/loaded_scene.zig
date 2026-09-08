@@ -116,7 +116,7 @@ test "LoadedScene keeps runtime entities and components synchronized through its
     }};
     const document: scene.SceneDocument = .{
         .arena = std.heap.ArenaAllocator.init(testing.allocator),
-        .format = "zephyr.scene",
+        .format = "fusion.scene",
         .version = 1,
         .scene_id = test_scene_id,
         .project_id = test_project_id,

@@ -17,7 +17,7 @@ pub const TransformComponent = struct {
 
     pub const schema_meta = scene.SchemaMeta{
         .id = "7fb84f38-52b6-4fd9-8c2f-fbd08c7a9001",
-        .name = "zephyr.runtime.transform",
+        .name = "fusion.runtime.transform",
         .display_name = "Transform",
         .version = 1,
         .fields = &.{
@@ -55,7 +55,7 @@ pub const MeshRenderComponent = struct {
 
     pub const schema_meta = scene.SchemaMeta{
         .id = "7fb84f38-52b6-4fd9-8c2f-fbd08c7a9002",
-        .name = "zephyr.runtime.mesh.render",
+        .name = "fusion.runtime.mesh.render",
         .display_name = "Mesh Renderer",
         .version = 1,
         .fields = &.{
@@ -77,7 +77,7 @@ pub const CameraComponent = struct {
 
     pub const schema_meta = scene.SchemaMeta{
         .id = "7fb84f38-52b6-4fd9-8c2f-fbd08c7a9003",
-        .name = "zephyr.runtime.camera",
+        .name = "fusion.runtime.camera",
         .display_name = "Camera",
         .version = 1,
         .fields = &.{
@@ -113,7 +113,7 @@ pub const CameraComponent = struct {
 pub const ActiveCamera = struct {
     pub const schema_meta = scene.SchemaMeta{
         .id = "32ccdb02-85b1-4a9e-9db4-4034dc5679bf",
-        .name = "zephyr.runtime.active_camera",
+        .name = "fusion.runtime.active_camera",
         .display_name = "Active Camera",
         .version = 1,
         .fields = &.{},

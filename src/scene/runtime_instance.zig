@@ -277,7 +277,7 @@ fn testContext(world: *World, registry: *const Registry, assets: *AssetManager) 
 fn testDocument(entities: []zimp.scene.SceneEntity) zimp.scene.SceneDocument {
     return .{
         .arena = std.heap.ArenaAllocator.init(testing.allocator),
-        .format = "zephyr.scene",
+        .format = "fusion.scene",
         .version = 1,
         .scene_id = test_scene_id,
         .project_id = test_project_id,
@@ -287,7 +287,7 @@ fn testDocument(entities: []zimp.scene.SceneEntity) zimp.scene.SceneDocument {
 }
 
 fn testProjectWithAssets(tmp: *testing.TmpDir) !Project {
-    try tmp.dir.createDirPath(testing.io, ".zephyr/cooked");
+    try tmp.dir.createDirPath(testing.io, ".fusion/cooked");
     var manifest = try zimp.manifest.model.testManifest(testing.allocator, &.{
         .{ .id = "7e6d1a1f-209f-4945-a2f5-283c895803cf", .kind = .material, .source_path = "materials/test.mat", .cooked_path = "test.zamat" },
         .{ .id = "8d522c0b-45e6-4e54-8c04-5f1bf913d1be", .source_path = "meshes/test.glb", .cooked_path = "test.zmesh" },
@@ -295,7 +295,7 @@ fn testProjectWithAssets(tmp: *testing.TmpDir) !Project {
         .{ .id = "f443d495-a80f-4a1c-ad87-6fe35159d17d", .kind = .texture, .source_path = "textures/test.png", .cooked_path = "test.ztex" },
     });
     defer manifest.deinit();
-    try zimp.manifest.codec.writeToDir(testing.allocator, testing.io, tmp.dir, ".zephyr/assets.zmanifest", &manifest);
+    try zimp.manifest.codec.writeToDir(testing.allocator, testing.io, tmp.dir, ".fusion/assets.zmanifest", &manifest);
 
     return .{
         .manifest = .{ .project_id = .zero },

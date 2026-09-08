@@ -106,10 +106,10 @@ pub fn getResource(self: *WorldInstance, comptime Resource: type) *Resource {
 }
 
 pub fn registerEngineComponents(world: *zcs.World) !void {
-    _ = try registerComponent(world, components.TransformComponent, "zephyr.transform");
-    _ = try registerComponent(world, components.MeshRenderComponent, "zephyr.meshrender");
-    _ = try registerComponent(world, components.CameraComponent, "zephyr.camera");
-    _ = try registerComponent(world, components.ActiveCamera, "zephyr.active_camera");
+    _ = try registerComponent(world, components.TransformComponent, "fusion.transform");
+    _ = try registerComponent(world, components.MeshRenderComponent, "fusion.meshrender");
+    _ = try registerComponent(world, components.CameraComponent, "fusion.camera");
+    _ = try registerComponent(world, components.ActiveCamera, "fusion.active_camera");
 }
 
 fn registerComponent(world: *zcs.World, comptime T: type, name: []const u8) !zcs.ComponentId {
@@ -143,10 +143,10 @@ test "init registers engine components and schemas" {
     try instance.init(testing.allocator, &schemas, empty_game);
     defer instance.deinit();
 
-    try testing.expect(schemas.getByName("zephyr.runtime.transform") != null);
-    try testing.expect(schemas.getByName("zephyr.runtime.mesh.render") != null);
-    try testing.expect(schemas.getByName("zephyr.runtime.camera") != null);
-    try testing.expect(schemas.getByName("zephyr.runtime.active_camera") != null);
+    try testing.expect(schemas.getByName("fusion.runtime.transform") != null);
+    try testing.expect(schemas.getByName("fusion.runtime.mesh.render") != null);
+    try testing.expect(schemas.getByName("fusion.runtime.camera") != null);
+    try testing.expect(schemas.getByName("fusion.runtime.active_camera") != null);
     try testing.expect(instance.active_scene == null);
 }
 

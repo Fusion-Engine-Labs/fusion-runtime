@@ -1038,14 +1038,14 @@ fn testProjectManifest() !zimp.ProjectManifest {
 
 /// Test project with a manifest covering the cooked assets the tests load.
 fn testProject(tmp: *std.testing.TmpDir) !Project {
-    try tmp.dir.createDirPath(testing.io, ".zephyr/cooked");
+    try tmp.dir.createDirPath(testing.io, ".fusion/cooked");
 
     var fixture = try zimp.manifest.model.testManifest(testing.allocator, &.{
         .{ .id = "3f2a77f1-9c44-4b7e-9b1a-2f6c1d8e5a01", .source_path = "meshes/asset.glb", .cooked_path = "asset.zmesh" },
         .{ .id = "b7e9b1a2-f6c1-4d8e-9a01-3f2a77f19c44", .source_path = "meshes/missing.glb", .cooked_path = "missing.zmesh" },
     });
     defer fixture.deinit();
-    try zimp.manifest.codec.writeToDir(testing.allocator, testing.io, tmp.dir, ".zephyr/assets.zmanifest", &fixture);
+    try zimp.manifest.codec.writeToDir(testing.allocator, testing.io, tmp.dir, ".fusion/assets.zmanifest", &fixture);
 
     return .{
         .manifest = try testProjectManifest(),
@@ -1059,7 +1059,7 @@ test "init opens cooked assets from project root" {
     var tmp = testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    try tmp.dir.createDirPath(testing.io, ".zephyr/cooked");
+    try tmp.dir.createDirPath(testing.io, ".fusion/cooked");
 
     var project = try testProject(&tmp);
     defer project.deinit(testing.allocator, testing.io);
@@ -1074,7 +1074,7 @@ test "init opens cooked assets from project root" {
     );
     defer manager.deinit();
 
-    try testing.expectEqualStrings(".zephyr/cooked", manager.source.root);
+    try testing.expectEqualStrings(".fusion/cooked", manager.source.root);
 }
 
 test "registerId deduplicates requests before background load finishes" {
@@ -1158,7 +1158,7 @@ test "init fails without an asset manifest" {
 
     var tmp = testing.tmpDir(.{});
     defer tmp.cleanup();
-    try tmp.dir.createDirPath(testing.io, ".zephyr/cooked");
+    try tmp.dir.createDirPath(testing.io, ".fusion/cooked");
 
     var project: Project = .{
         .manifest = try testProjectManifest(),

@@ -88,16 +88,16 @@ const testing = std.testing;
 test "loadFromDir indexes entries by id and cooked path" {
     var tmp = testing.tmpDir(.{});
     defer tmp.cleanup();
-    try tmp.dir.createDirPath(testing.io, ".zephyr");
+    try tmp.dir.createDirPath(testing.io, ".fusion");
 
     var fixture = try zimp.manifest.model.testManifest(testing.allocator, &.{
         .{ .id = "3f2a77f1-9c44-4b7e-9b1a-2f6c1d8e5a01", .source_path = "meshes/monkey.glb", .cooked_path = "meshes/monkey.zmesh", .content_hash = 42 },
         .{ .id = "8c1d6602-b3f4-4910-9c44-4b7e9b1a2f6c", .source_path = "tex/brick.png", .kind = .texture, .cooked_path = "tex/brick.ztex" },
     });
     defer fixture.deinit();
-    try zimp.manifest.codec.writeToDir(testing.allocator, testing.io, tmp.dir, ".zephyr/assets.zmanifest", &fixture);
+    try zimp.manifest.codec.writeToDir(testing.allocator, testing.io, tmp.dir, ".fusion/assets.zmanifest", &fixture);
 
-    var manifest = try RuntimeAssetManifest.loadFromDir(testing.allocator, testing.io, tmp.dir, ".zephyr/assets.zmanifest");
+    var manifest = try RuntimeAssetManifest.loadFromDir(testing.allocator, testing.io, tmp.dir, ".fusion/assets.zmanifest");
     defer manifest.deinit();
 
     const mesh_id = AssetId.parseComptime("3f2a77f1-9c44-4b7e-9b1a-2f6c1d8e5a01");

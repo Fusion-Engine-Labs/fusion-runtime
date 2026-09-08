@@ -1,8 +1,8 @@
 .{
-    .name = .zephyr_runtime,
+    .name = .fusion_runtime,
     .version = "0.0.0",
-    .fingerprint = 0x24a7f8b3f46b5601,
-    .minimum_zig_version = "0.16.0-dev",
+    .fingerprint = 0x0ab3bed29543f619,
+    .minimum_zig_version = "0.16.0",
     .dependencies = .{
         .glfw_zig = .{
             .url = "git+https://github.com/tiawl/glfw.zig#32a093cd869a0694ca2c0306680f7c7bc5dcd0b9",
@@ -17,16 +17,16 @@
             .hash = "zlm-0.1.0-LoZ6yDawAADMopilIe9MDzer0UqmruCy_PuhNv4OMc7c",
         },
         .zcs = .{
-            .url = "git+https://github.com/Zephyr-Engine/zcs.git#1d4701563b9dea5aa35d1048445cc8d7c7d1b16f",
+            .url = "git+https://github.com/Fusion-Engine-Labs/zcs.git#1d4701563b9dea5aa35d1048445cc8d7c7d1b16f",
             .hash = "zcs-0.0.0-ypv9mzQrAQAzqv3TrRF-PFxJve01bMrroZt5XtixxtfT",
         },
         .zob = .{
-            .url = "git+https://github.com/Zephyr-Engine/zob.git#c4ee545ba07e59c4aac95bd5c39f932d2ee9668d",
+            .url = "git+https://github.com/Fusion-Engine-Labs/zob.git#c4ee545ba07e59c4aac95bd5c39f932d2ee9668d",
             .hash = "zob-1.2.0-qYajyLa8AAA0NgQZaYY6DTC8GuKqWlgpOXkq-Xze4soh",
         },
         .zimp = .{
-            .url = "git+https://github.com/Zephyr-Engine/zimp.git#a0bb9a619c1c6f95f2874bbe64ba2bfe7c5a74d7",
-            .hash = "zimp-0.0.0-jO8AWqVREwCleWxM1SLZIVkmNxP-1uP0Qa8hDMaS6xy_",
+            .url = "git+https://github.com/Fusion-Engine-Labs/zimp.git#80b76da76d836e4eb347cb22424e061ab45196a3",
+            .hash = "zimp-0.0.0-jO8AWqpREwC2UpIz-wPOSSGNeLI945vSbaHHs0k0EsU6",
         },
     },
     .paths = .{

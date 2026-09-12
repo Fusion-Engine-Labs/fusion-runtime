@@ -18,6 +18,7 @@ pub const Mesh = @import("graphics/mesh.zig");
 pub const Input = @import("core/input.zig");
 
 pub const AssetManager = @import("assets/asset_manager.zig").AssetManager;
+pub const RuntimeAssetManifest = @import("assets/manifest.zig");
 pub const AssetError = @import("assets/source.zig").AssetError;
 pub const ComponentTypeId = zimp.ComponentTypeId;
 pub const SceneEntityId = zimp.SceneEntityId;

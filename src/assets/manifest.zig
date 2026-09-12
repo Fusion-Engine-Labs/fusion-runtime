@@ -14,12 +14,10 @@ by_cooked_path: std.StringHashMapUnmanaged(u32),
 pub const Entry = struct {
     id: AssetId,
     kind: zimp.AssetKind,
-    /// Relative to the project cooked dir, normalized.
     cooked_path: []const u8,
     content_hash: u64,
 };
 
-/// Load `<manifest_path>` relative to `root_dir` (the project root).
 pub fn loadFromDir(
     allocator: std.mem.Allocator,
     io: std.Io,
@@ -48,8 +46,6 @@ pub fn loadFromDir(
             .content_hash = src.content_hash,
         };
 
-        // The codec already rejects duplicate ids; cooked paths are not
-        // covered by its uniqueness rules, so defend here.
         const id_gop = try self.by_id.getOrPut(a, src.id);
         if (id_gop.found_existing) {
             return error.DuplicateAssetId;
@@ -76,8 +72,6 @@ pub fn byId(self: *const RuntimeAssetManifest, id: AssetId) ?*const Entry {
     return &self.entries[idx];
 }
 
-/// `cooked_path` must already be normalized (the asset manager
-/// normalizes every registration path before lookup).
 pub fn byCookedPath(self: *const RuntimeAssetManifest, cooked_path: []const u8) ?*const Entry {
     const idx = self.by_cooked_path.get(cooked_path) orelse return null;
     return &self.entries[idx];

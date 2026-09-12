@@ -56,7 +56,7 @@ pub const MeshRenderComponent = struct {
     pub const schema_meta = scene.SchemaMeta{
         .id = "7fb84f38-52b6-4fd9-8c2f-fbd08c7a9002",
         .name = "fusion.runtime.mesh.render",
-        .display_name = "Mesh Renderer",
+        .display_name = "Mesh",
         .version = 1,
         .fields = &.{
             .{

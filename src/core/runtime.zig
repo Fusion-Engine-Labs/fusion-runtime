@@ -22,7 +22,7 @@ pub fn Runtime(comptime game: Game) type {
         schemas: SchemaRegistry,
         world: WorldInstance,
         assets: AssetManager,
-        time: Time = .init(),
+        time: Time,
         renderer: Renderer,
         io: std.Io,
 
@@ -38,6 +38,7 @@ pub fn Runtime(comptime game: Game) type {
                 .assets = undefined,
                 .renderer = undefined,
                 .world = undefined,
+                .time = try Time.init(game.simulation),
             };
 
             runtime.renderer = try Renderer.init(allocator, .opengl);
@@ -55,6 +56,7 @@ pub fn Runtime(comptime game: Game) type {
             errdefer runtime.world.deinit();
 
             try runtime.world.setResource(Input, .{});
+            try runtime.world.setResource(Time.SimulationClock, .{});
 
             return runtime;
         }
@@ -70,16 +72,35 @@ pub fn Runtime(comptime game: Game) type {
                 &self.assets,
                 default_scene,
             );
+            self.resetSimulation();
         }
 
         pub fn resetActiveScene(self: *@This()) !void {
             try self.world.resetActiveScene();
+            self.resetSimulation();
+        }
+
+        fn resetSimulation(self: *@This()) void {
+            self.time.reset();
+            self.world.getResource(Time.SimulationClock).* = .{};
+        }
+
+        pub fn setSimulationPaused(self: *@This(), paused: bool) void {
+            self.time.setPaused(paused);
+        }
+
+        pub fn stepSimulation(self: *@This()) !void {
+            try self.time.requestSingleStep();
+        }
+
+        pub fn setTimeScale(self: *@This(), scale: f64) !void {
+            try self.time.setTimeScale(scale);
         }
 
         pub fn beginFrame(self: *@This(), now: f64, focused: bool) void {
             self.world.getResource(Input).beginFrame();
             self.world.getResource(Input).setFocused(focused);
-            self.time.update(@floatCast(now));
+            self.time.beginFrame(now);
             self.frame_cpu_start = now;
         }
 
@@ -103,19 +124,26 @@ pub fn Runtime(comptime game: Game) type {
 
         pub fn update(self: *@This()) !void {
             try self.pumpAssets();
+            try self.time.advanceFixed(&self.world.world, &self.world.command_buffer, game.fixed_update_schedule);
             try self.tickSchedule(game.update_schedule);
         }
 
         pub fn updateWithSchedule(self: *@This(), comptime schedule: zcs.Schedule.Spec) !void {
             try self.pumpAssets();
+            self.time.discardFixed();
             try self.tickSchedule(schedule);
         }
 
         pub fn tickSchedule(self: *@This(), comptime schedule: zcs.Schedule.Spec) !void {
-            try zcs.Schedule.tickDt(
+            if (self.world.world.getResourceOrNull(zcs.FrameCount)) |frame| {
+                frame.value += 1;
+            } else {
+                try self.world.setResource(zcs.FrameCount, .{ .value = 1 });
+            }
+            try zcs.Schedule.run(
                 &self.world.world,
                 &self.world.command_buffer,
-                self.time.delta_time,
+                .{ .delta_time = self.time.deltaTime() },
                 schedule,
             );
         }
@@ -126,7 +154,7 @@ pub fn Runtime(comptime game: Game) type {
 
         pub fn completeFrame(self: *@This(), now: f64) void {
             const elapsed_ms: f32 = @floatCast(@max(0, now - self.frame_cpu_start) * 1000);
-            self.renderer.recordCpuFrame(self.time.delta_time, elapsed_ms);
+            self.renderer.recordCpuFrame(self.time.deltaTime(), elapsed_ms);
         }
 
         pub fn setDebugStatsEnabled(self: *@This(), enabled: bool) void {
@@ -138,7 +166,7 @@ pub fn Runtime(comptime game: Game) type {
         }
 
         pub fn deltaTime(self: *const @This()) f32 {
-            return self.time.delta_time;
+            return self.time.deltaTime();
         }
 
         pub fn deinit(self: *@This()) void {
@@ -149,4 +177,81 @@ pub fn Runtime(comptime game: Game) type {
             self.allocator.destroy(self);
         }
     };
+}
+
+const TestCounts = struct { fixed: u32 = 0, frames: u32 = 0, fixed_presses: u32 = 0, frame_presses: u32 = 0 };
+fn testFixedSystem(world: *zcs.World, _: *zcs.CommandBuffer) !void {
+    const counts = world.getResource(TestCounts);
+    counts.fixed += 1;
+    counts.fixed_presses += @intFromBool(world.getResource(Input).wasKeyPressed(.W));
+    try std.testing.expectEqual(@as(f32, 0.01), world.getResource(zcs.DeltaTime).seconds);
+}
+fn testFrameSystem(world: *zcs.World, _: *zcs.CommandBuffer) !void {
+    const counts = world.getResource(TestCounts);
+    counts.frames += 1;
+    counts.frame_presses += @intFromBool(world.getResource(Input).wasKeyPressed(.W));
+}
+
+test "runtime runs fixed ticks before frame updates and preserves editor schedule overrides" {
+    const zimp = @import("zimp");
+    const testing = std.testing;
+    const definition: Game = .{
+        .components = &.{},
+        .fixed_update_schedule = .{ .update = &.{testFixedSystem} },
+        .update_schedule = .{ .update = &.{testFrameSystem} },
+        .simulation = .{ .step_seconds = 0.01 },
+    };
+    var tmp = testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.createDirPath(testing.io, ".fusion/cooked");
+    var manifest = try zimp.manifest.model.testManifest(testing.allocator, &.{});
+    defer manifest.deinit();
+    try zimp.manifest.codec.writeToDir(testing.allocator, testing.io, tmp.dir, ".fusion/assets.zmanifest", &manifest);
+    var project: Project = .{ .root_dir = tmp.dir, .manifest = .{ .project_id = .zero } };
+    // Assemble the normal CPU-side runtime services without preloading GPU
+    // builtins, so this integration test requires no window or GL context.
+    var runtime: Runtime(definition) = undefined;
+    runtime.allocator = testing.allocator;
+    runtime.io = testing.io;
+    runtime.project = &project;
+    runtime.time = try Time.init(definition.simulation);
+    runtime.renderer = try Renderer.init(testing.allocator, .opengl);
+    defer runtime.renderer.deinit();
+    runtime.schemas = SchemaRegistry.init(testing.allocator);
+    defer runtime.schemas.deinit();
+    try runtime.world.init(testing.allocator, &runtime.schemas, definition);
+    defer runtime.world.deinit();
+    runtime.assets = try AssetManager.init(testing.allocator, testing.io, &project, &runtime.renderer.device);
+    defer runtime.assets.deinit();
+    try runtime.world.setResource(Input, .{});
+    try runtime.world.setResource(Time.SimulationClock, .{});
+    try runtime.world.setResource(TestCounts, .{});
+    runtime.beginFrame(100, true);
+    runtime.processEvents(&.{.{ .KeyPressed = .W }});
+    try runtime.update();
+    runtime.beginFrame(100.005, true);
+    try runtime.update();
+    runtime.beginFrame(100.020, true);
+    try runtime.update();
+    const counts = runtime.world.getResource(TestCounts);
+    try testing.expectEqual(@as(u32, 2), counts.fixed);
+    try testing.expectEqual(@as(u32, 3), counts.frames);
+    try testing.expectEqual(@as(u32, 1), counts.fixed_presses);
+    try testing.expectEqual(@as(u32, 1), counts.frame_presses);
+    try testing.expectEqual(@as(u64, 3), runtime.world.getResource(zcs.FrameCount).value);
+    runtime.setSimulationPaused(true);
+    runtime.beginFrame(101, true);
+    try runtime.update();
+    try testing.expectEqual(@as(u32, 2), counts.fixed);
+    try runtime.stepSimulation();
+    runtime.beginFrame(102, true);
+    try runtime.update();
+    try testing.expectEqual(@as(u32, 3), counts.fixed);
+    runtime.setSimulationPaused(false);
+    runtime.beginFrame(103, true);
+    try runtime.updateWithSchedule(definition.update_schedule);
+    try testing.expectEqual(@as(u32, 3), counts.fixed);
+    runtime.beginFrame(103.01, true);
+    try runtime.update();
+    try testing.expectEqual(@as(u32, 4), counts.fixed);
 }

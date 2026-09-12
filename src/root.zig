@@ -16,6 +16,8 @@ pub const Key = @import("core/event.zig").Key;
 pub const Window = @import("core/window.zig");
 pub const Mesh = @import("graphics/mesh.zig");
 pub const Input = @import("core/input.zig");
+pub const Time = @import("core/time.zig");
+pub const SimulationTime = Time.SimulationClock;
 
 pub const AssetManager = @import("assets/asset_manager.zig").AssetManager;
 pub const RuntimeAssetManifest = @import("assets/manifest.zig");

@@ -38,6 +38,28 @@ pub fn beginFrame(self: *Input) void {
     self.text_len = 0;
 }
 
+pub fn accumulateFrame(self: *Input, frame: *const Input) void {
+    if (!frame.focused) {
+        self.* = frame.*;
+        self.beginFrame();
+        return;
+    }
+    self.key_down = frame.key_down;
+    self.mouse_button_down = frame.mouse_button_down;
+    for (&self.key_pressed, frame.key_pressed) |*pending, edge| pending.* = pending.* or edge;
+    for (&self.key_released, frame.key_released) |*pending, edge| pending.* = pending.* or edge;
+    for (&self.mouse_button_pressed, frame.mouse_button_pressed) |*pending, edge| pending.* = pending.* or edge;
+    for (&self.mouse_button_released, frame.mouse_button_released) |*pending, edge| pending.* = pending.* or edge;
+    self.mouse_pos = frame.mouse_pos;
+    self.has_mouse_position = frame.has_mouse_position;
+    self.focused = frame.focused;
+    self.mouse_delta.x += frame.mouse_delta.x;
+    self.mouse_delta.y += frame.mouse_delta.y;
+    self.mouse_scroll.x += frame.mouse_scroll.x;
+    self.mouse_scroll.y += frame.mouse_scroll.y;
+    for (frame.textInput()) |codepoint| self.appendText(codepoint);
+}
+
 pub fn clear(self: *Input) void {
     @memset(&self.key_down, false);
     @memset(&self.key_pressed, false);

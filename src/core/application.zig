@@ -88,6 +88,18 @@ pub fn Application(comptime game: Game) type {
             try self.runtime.update();
         }
 
+        pub fn setSimulationPaused(self: *@This(), paused: bool) void {
+            self.runtime.setSimulationPaused(paused);
+        }
+
+        pub fn stepSimulation(self: *@This()) !void {
+            try self.runtime.stepSimulation();
+        }
+
+        pub fn setTimeScale(self: *@This(), scale: f64) !void {
+            try self.runtime.setTimeScale(scale);
+        }
+
         pub fn updateWithSchedule(self: *@This(), comptime schedule: zcs.Schedule.Spec) !void {
             try self.runtime.updateWithSchedule(schedule);
         }

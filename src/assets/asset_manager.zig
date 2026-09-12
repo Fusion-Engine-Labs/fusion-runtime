@@ -30,7 +30,6 @@ const AssetState = enum {
     queued,
     loading,
     ready_for_finalize,
-    waiting_dependencies,
     finalizing,
     loaded,
     failed,
@@ -215,8 +214,8 @@ pub const AssetManager = struct {
 
     pub fn availability(self: *AssetManager, id: AssetId) Availability {
         self.lock();
+        defer self.unlock();
         const record = self.assets.get(id) orelse return .missing;
-        self.unlock();
 
         return switch (record.state) {
             .loaded => .loaded,
@@ -265,7 +264,7 @@ pub const AssetManager = struct {
                     self.unlock();
                     return err;
                 },
-                .ready_for_finalize, .waiting_dependencies, .finalizing => {
+                .ready_for_finalize, .finalizing => {
                     self.unlock();
                 },
                 .queued, .loading => {
@@ -287,7 +286,7 @@ pub const AssetManager = struct {
             while (it.next()) |record_ptr| {
                 const record = record_ptr.*;
                 switch (record.state) {
-                    .ready_for_finalize, .waiting_dependencies => {
+                    .ready_for_finalize => {
                         self.reapLoadFutureLocked(record);
                         try ready.append(self.allocator, record);
                         record.state = .finalizing;
@@ -319,7 +318,7 @@ pub const AssetManager = struct {
                     record.failure = null;
                 },
                 .waiting => {
-                    record.state = .waiting_dependencies;
+                    record.state = .ready_for_finalize;
                 },
             }
             self.cond.broadcast(self.io);
@@ -361,49 +360,44 @@ pub const AssetManager = struct {
         var key_owned = true;
         errdefer if (key_owned) self.allocator.free(lookup_key);
 
-        self.lock();
-        var locked = true;
-        defer if (locked) self.unlock();
+        const record = created: {
+            self.lock();
+            defer self.unlock();
 
-        if (self.asset_keys.get(lookup_key)) |cached| {
-            self.allocator.free(normalized_path);
-            self.allocator.free(lookup_key);
+            if (self.asset_keys.get(lookup_key)) |cached| {
+                self.allocator.free(normalized_path);
+                self.allocator.free(lookup_key);
+                return cached;
+            }
+
+            const id = try self.resolveIdLocked(expected, normalized_path);
+            const new_record = try self.allocator.create(AssetRecord);
+            new_record.* = .{
+                .id = id,
+                .kind = expected,
+                .path = normalized_path,
+                .state = .queued,
+            };
             path_owned = false;
+            var record_owned = true;
+            errdefer if (record_owned) {
+                new_record.deinit(self.allocator);
+                self.allocator.destroy(new_record);
+            };
+            try self.assets.put(id, new_record);
+            errdefer _ = self.assets.remove(id);
+            try self.asset_keys.put(lookup_key, id);
             key_owned = false;
-            return cached;
-        }
+            record_owned = false;
 
-        const id = try self.resolveIdLocked(expected, normalized_path);
-        const record = try self.allocator.create(AssetRecord);
-        record.* = .{
-            .id = id,
-            .kind = expected,
-            .path = normalized_path,
-            .state = .queued,
+            break :created new_record;
         };
-        path_owned = false;
-        var record_owned = true;
-        errdefer if (record_owned) {
-            record.deinit(self.allocator);
-            self.allocator.destroy(record);
-        };
-        try self.assets.put(id, record);
-        errdefer _ = self.assets.remove(id);
-        try self.asset_keys.put(lookup_key, id);
-        key_owned = false;
-        errdefer {
-            _ = self.asset_keys.remove(lookup_key);
-            self.allocator.free(lookup_key);
-        }
-        record_owned = false;
 
-        self.unlock();
-        locked = false;
         record.load_future = self.scheduler.submit(LoadJob, .{
             .manager = self,
             .record = record,
         }, .low);
-        return id;
+        return record.id;
     }
 
     fn processLoad(self: *AssetManager, record: *AssetRecord) void {
@@ -515,8 +509,9 @@ pub const AssetManager = struct {
 
         var mips: std.ArrayList(RhiTexture.MipData) = .empty;
         defer mips.deinit(self.allocator);
+        try mips.ensureTotalCapacityPrecise(self.allocator, cooked_texture.mips.len);
         for (cooked_texture.mips) |mip| {
-            try mips.append(self.allocator, .{ .extent = .{ .width = mip.width, .height = mip.height }, .bytes = mip.data });
+            mips.appendAssumeCapacity(.{ .extent = .{ .width = mip.width, .height = mip.height }, .bytes = mip.data });
         }
 
         const texture = try self.allocator.create(TextureAsset);
@@ -617,6 +612,7 @@ pub const AssetManager = struct {
         material_source: *const zimp.Zamat,
         out_bindings: *std.ArrayList(Material.TextureBinding),
     ) !bool {
+        try out_bindings.ensureTotalCapacityPrecise(self.allocator, material_source.texture_slots.len);
         for (material_source.texture_slots, 0..) |slot, texture_unit| {
             if (slot.cooked_path.len == 0) continue;
 
@@ -625,11 +621,8 @@ pub const AssetManager = struct {
 
             const texture_id = try self.requestKind(.texture, texture_path);
             const texture_asset = try self.loadedAsset(texture_id, .texture) orelse return false;
-            const texture = switch (texture_asset) {
-                .texture => |texture| texture,
-                else => unreachable,
-            };
-            try out_bindings.append(self.allocator, .{
+            const texture = texture_asset.texture;
+            out_bindings.appendAssumeCapacity(.{
                 .unit = @intCast(texture_unit),
                 .view = texture.view,
                 .sampler = try self.sampler_cache.get(self.device, Sampler.Desc.fromTextureSlotEntry(slot)),
@@ -678,14 +671,8 @@ pub const AssetManager = struct {
         const fragment_id = try self.requestKind(.shader_stage, normalized_fragment);
         const vertex_asset = try self.loadedAsset(vertex_id, .shader_stage) orelse return null;
         const fragment_asset = try self.loadedAsset(fragment_id, .shader_stage) orelse return null;
-        const vertex_stage = switch (vertex_asset) {
-            .shader_stage => |shader| shader,
-            else => unreachable,
-        };
-        const fragment_stage = switch (fragment_asset) {
-            .shader_stage => |shader| shader,
-            else => unreachable,
-        };
+        const vertex_stage = vertex_asset.shader_stage;
+        const fragment_stage = fragment_asset.shader_stage;
 
         if (vertex_stage.stage != .vertex or fragment_stage.stage != .fragment) {
             return AssetError.WrongAssetKind;

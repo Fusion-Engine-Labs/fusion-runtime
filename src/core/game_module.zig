@@ -9,8 +9,8 @@ pub const symbol: [:0]const u8 = "fusion_get_game";
 
 pub const GameModule = struct {
     version: u32 = version,
-    register_components: *const fn (*World) bool,
-    fixed_update: *const fn (*zcs.World, *zcs.CommandBuffer) bool,
+    register_components: *const fn (*World) callconv(.c) bool,
+    fixed_update: *const fn (*zcs.World, *zcs.CommandBuffer) callconv(.c) bool,
 };
 
 pub const GetGame = *const fn () callconv(.c) *const GameModule;

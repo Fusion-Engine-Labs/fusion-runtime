@@ -17,8 +17,8 @@
             .hash = "zlm-0.1.0-LoZ6yDawAADMopilIe9MDzer0UqmruCy_PuhNv4OMc7c",
         },
         .zcs = .{
-            .url = "git+https://github.com/Fusion-Engine-Labs/zcs.git#d295fac0d7188432df67740d9a1784f83694c5fb",
-            .hash = "zcs-0.0.0-ypv9m1t0AQDDGotABbwLVRn_qkUD5iO37fO8xqjifZ4x",
+            .url = "git+https://github.com/Fusion-Engine-Labs/zcs.git#554897f461c507d7158e19d4b7ba6df6bc5c7f63",
+            .hash = "zcs-0.0.0-ypv9m9xzAQBRALUqvjyBOaC-L_7Nl2yFHOA-kenE_dtb",
         },
         .zob = .{
             .url = "git+https://github.com/Fusion-Engine-Labs/zob.git#c4ee545ba07e59c4aac95bd5c39f932d2ee9668d",

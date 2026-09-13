@@ -8,6 +8,7 @@ pub const CursorKind = @import("core/window.zig").CursorKind;
 pub const Geometry = @import("graphics/rhi/geometry.zig");
 pub const Texture = @import("graphics/rhi/texture.zig");
 pub const Sampler = @import("graphics/rhi/sampler.zig");
+pub const game_module = @import("core/game_module.zig");
 pub const Buffer = @import("graphics/rhi/buffer.zig");
 pub const Device = @import("graphics/rhi/device.zig");
 pub const Material = @import("graphics/material.zig");
@@ -104,6 +105,7 @@ test {
     _ = @import("ecs/components.zig");
     _ = @import("assets/asset_manager.zig");
     _ = @import("core/runtime.zig");
+    _ = @import("core/game_module.zig");
     _ = @import("graphics/opengl/framebuffer.zig");
     _ = @import("graphics/opengl/buffer.zig");
     _ = @import("graphics/opengl/diagnostics.zig");

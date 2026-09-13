@@ -23,19 +23,12 @@ pub fn init(self: *WorldInstance, allocator: std.mem.Allocator, schemas: *Schema
     var world = zcs.World.init(allocator);
     errdefer world.deinit();
 
-    try registerEngineComponents(&world);
-    inline for (game.components) |Component| {
-        const name = if (@hasDecl(Component, "schema_meta")) Component.schema_meta.name else @typeName(Component);
-        _ = try registerComponent(&world, Component, name);
-    }
-
-    try schemas.registerComponents(&.{
-        components.TransformComponent,
-        components.MeshRenderComponent,
-        components.CameraComponent,
-        components.ActiveCamera,
-    });
-    try schemas.registerComponents(game.components);
+    try registerEngineComponents(&world, schemas);
+    try registerGameComponenets(
+        &world,
+        schemas,
+        game.components,
+    );
 
     self.* = .{
         .world = world,
@@ -105,11 +98,28 @@ pub fn getResource(self: *WorldInstance, comptime Resource: type) *Resource {
     return self.world.getResource(Resource);
 }
 
-pub fn registerEngineComponents(world: *zcs.World) !void {
-    _ = try registerComponent(world, components.TransformComponent, "fusion.transform");
-    _ = try registerComponent(world, components.MeshRenderComponent, "fusion.meshrender");
-    _ = try registerComponent(world, components.CameraComponent, "fusion.camera");
-    _ = try registerComponent(world, components.ActiveCamera, "fusion.active_camera");
+pub fn registerEngineComponents(world: *zcs.World, schemas: *SchemaRegistry) !void {
+    const engine_components = &.{
+        components.TransformComponent,
+        components.MeshRenderComponent,
+        components.CameraComponent,
+        components.ActiveCamera,
+    };
+    inline for (engine_components) |Component| {
+        _ = try registerComponent(world, Component, "fusion.runtime." ++ @typeName(Component));
+    }
+    try schemas.registerComponents(engine_components);
+}
+
+pub fn registerGameComponenets(world: *zcs.World, schemas: *SchemaRegistry, comptime component_types: []const type) !void {
+    inline for (component_types) |Component| {
+        const name = if (@hasDecl(Component, "schema_meta"))
+            Component.schema_meta.name
+        else
+            @typeName(Component);
+        _ = try registerComponent(world, Component, name);
+    }
+    try schemas.registerComponents(component_types);
 }
 
 fn registerComponent(world: *zcs.World, comptime T: type, name: []const u8) !zcs.ComponentId {

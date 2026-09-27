@@ -9,7 +9,7 @@ pub const Position = struct {
     y: f32 = 0,
 };
 
-pub const key_count = @intFromEnum(event.Key.Menu) + 1;
+pub const key_count = @import("fusion_sdk").abi.key_count;
 pub const mouse_button_count = @intFromEnum(event.MouseButton.Button7) + 1;
 pub const text_capacity = 64;
 

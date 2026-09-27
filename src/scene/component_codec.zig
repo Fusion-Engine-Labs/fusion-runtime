@@ -15,13 +15,50 @@ pub const CodecError = error{
 
 pub const ComponentCodec = struct {
     schema: ComponentSchema,
+    impl: union(enum) {
+        static: VTable,
+        dynamic: *const @import("dynamic_component.zig"),
+    },
 
-    attachDefault: *const fn (*zcs.World, zcs.EntityID, std.mem.Allocator) anyerror!void,
-    attach: *const fn (*zcs.World, zcs.EntityID, std.mem.Allocator, SceneComponentData) anyerror!void,
-    detach: *const fn (*zcs.World, zcs.EntityID, std.mem.Allocator) anyerror!void,
+    pub const VTable = struct {
+        attachDefault: *const fn (*zcs.World, zcs.EntityID, std.mem.Allocator) anyerror!void,
+        attach: *const fn (*zcs.World, zcs.EntityID, std.mem.Allocator, SceneComponentData) anyerror!void,
+        detach: *const fn (*zcs.World, zcs.EntityID, std.mem.Allocator) anyerror!void,
 
-    readDocument: *const fn (*zcs.World, zcs.EntityID, std.mem.Allocator) anyerror!SceneComponentData,
-    writeField: *const fn (*zcs.World, zcs.EntityID, std.mem.Allocator, u32, Value) anyerror!void,
+        readDocument: *const fn (*zcs.World, zcs.EntityID, std.mem.Allocator) anyerror!SceneComponentData,
+        writeField: *const fn (*zcs.World, zcs.EntityID, std.mem.Allocator, u32, Value) anyerror!void,
+    };
+
+    pub fn attachDefault(self: ComponentCodec, world: *zcs.World, entity: zcs.EntityID, allocator: std.mem.Allocator) !void {
+        return switch (self.impl) {
+            .static => |v| v.attachDefault(world, entity, allocator),
+            .dynamic => |d| d.attachDefault(world, entity),
+        };
+    }
+    pub fn attach(self: ComponentCodec, world: *zcs.World, entity: zcs.EntityID, allocator: std.mem.Allocator, data: SceneComponentData) !void {
+        return switch (self.impl) {
+            .static => |v| v.attach(world, entity, allocator, data),
+            .dynamic => |d| d.attach(world, entity, data),
+        };
+    }
+    pub fn detach(self: ComponentCodec, world: *zcs.World, entity: zcs.EntityID, allocator: std.mem.Allocator) !void {
+        return switch (self.impl) {
+            .static => |v| v.detach(world, entity, allocator),
+            .dynamic => |d| d.detach(world, entity),
+        };
+    }
+    pub fn readDocument(self: ComponentCodec, world: *zcs.World, entity: zcs.EntityID, allocator: std.mem.Allocator) !SceneComponentData {
+        return switch (self.impl) {
+            .static => |v| v.readDocument(world, entity, allocator),
+            .dynamic => |d| d.readDocument(world, entity, allocator),
+        };
+    }
+    pub fn writeField(self: ComponentCodec, world: *zcs.World, entity: zcs.EntityID, allocator: std.mem.Allocator, number: u32, value: Value) !void {
+        return switch (self.impl) {
+            .static => |v| v.writeField(world, entity, allocator, number, value),
+            .dynamic => |d| d.writeField(world, entity, number, value),
+        };
+    }
 };
 
 const testing = std.testing;
@@ -98,11 +135,13 @@ fn writeField(world: *zcs.World, entity: zcs.EntityID, _: std.mem.Allocator, _: 
 test "ComponentCodec stores schema and dispatches callbacks" {
     const codec = ComponentCodec{
         .schema = testSchema(),
-        .attachDefault = attachDefault,
-        .attach = attach,
-        .detach = detach,
-        .readDocument = readDocument,
-        .writeField = writeField,
+        .impl = .{ .static = .{
+            .attachDefault = attachDefault,
+            .attach = attach,
+            .detach = detach,
+            .readDocument = readDocument,
+            .writeField = writeField,
+        } },
     };
 
     try testing.expect(codec.schema.id.eql(test_component_id));

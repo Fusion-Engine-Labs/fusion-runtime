@@ -99,12 +99,7 @@ pub fn getResource(self: *WorldInstance, comptime Resource: type) *Resource {
 }
 
 pub fn registerEngineComponents(world: *zcs.World, schemas: *SchemaRegistry) !void {
-    const engine_components = &.{
-        components.TransformComponent,
-        components.MeshRenderComponent,
-        components.CameraComponent,
-        components.ActiveCamera,
-    };
+    const engine_components = components.builtin_types;
     inline for (engine_components) |Component| {
         _ = try registerComponent(world, Component, "fusion.runtime." ++ @typeName(Component));
     }

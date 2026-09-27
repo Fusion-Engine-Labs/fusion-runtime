@@ -7,10 +7,7 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const zlm_dep = b.dependency("zlm", .{
-        .target = target,
-        .optimize = optimize,
-    });
+    const sdk_dep = b.dependency("fusion_sdk", .{ .target = target, .optimize = optimize });
 
     const zimp_dep = b.dependency("zimp", .{
         .target = target,
@@ -45,9 +42,9 @@ pub fn build(b: *std.Build) void {
     });
 
     const deps: Deps = .{
+        .sdk = sdk_dep.module("fusion_sdk"),
         .glfw = glfw_dep.artifact("glfw"),
         .glad = glad_dep.artifact("glad"),
-        .zlm = zlm_dep.module("zlm"),
         .zimp = zimp_dep.module("zimp"),
         .zob = zob_dep.module("zob"),
         .zcs = zcs_dep.module("zcs"),
@@ -77,6 +74,20 @@ pub fn build(b: *std.Build) void {
     });
     deps.wire(lib_unit_tests.root_module);
 
+    if (b.option([]const u8, "game-library", "Path to a separately built sandbox-game library")) |path| {
+        const options = b.addOptions();
+        options.addOption([]const u8, "library_path", b.pathFromRoot(path));
+        const integration = b.createModule(.{
+            .root_source_file = b.path("tests/game_library.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{ .{ .name = "fusion_runtime", .module = mod }, .{ .name = "fusion_sdk", .module = deps.sdk } },
+        });
+        integration.addOptions("test_options", options);
+        const run = b.addRunArtifact(b.addTest(.{ .root_module = integration }));
+        b.step("test-game", "Exercise a real game DLL against this host build mode").dependOn(&run.step);
+    }
+
     const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
 
     const test_step = b.step("test", "Run unit tests");
@@ -85,17 +96,17 @@ pub fn build(b: *std.Build) void {
 }
 
 const Deps = struct {
+    sdk: *std.Build.Module,
     glfw: *std.Build.Step.Compile,
     glad: *std.Build.Step.Compile,
-    zlm: *std.Build.Module,
     zimp: *std.Build.Module,
     zob: *std.Build.Module,
     zcs: *std.Build.Module,
 
     fn wire(deps: Deps, mod: *std.Build.Module) void {
+        mod.addImport("fusion_sdk", deps.sdk);
         mod.linkLibrary(deps.glfw);
         mod.linkLibrary(deps.glad);
-        mod.addImport("zlm", deps.zlm);
         mod.addImport("zimp", deps.zimp);
         mod.addImport("zob", deps.zob);
         mod.addImport("zcs", deps.zcs);

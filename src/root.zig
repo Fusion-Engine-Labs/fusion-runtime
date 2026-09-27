@@ -106,6 +106,8 @@ test {
     _ = @import("assets/asset_manager.zig");
     _ = @import("core/runtime.zig");
     _ = @import("core/game_module.zig");
+    _ = @import("core/game_host.zig");
+    _ = @import("scene/dynamic_component.zig");
     _ = @import("graphics/opengl/framebuffer.zig");
     _ = @import("graphics/opengl/buffer.zig");
     _ = @import("graphics/opengl/diagnostics.zig");

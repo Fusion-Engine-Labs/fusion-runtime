@@ -265,9 +265,9 @@ fn destroyGeometry(impl: *anyopaque, geometry: *RhiGeometry) void {
     geometry.* = undefined;
 }
 
-fn drawIndexed(impl: *anyopaque, geometry: RhiGeometry, first: u32, count: u32) void {
+fn drawIndexed(impl: *anyopaque, geometry: RhiGeometry, first: u32, count: u32, base_vertex: i32) void {
     const self: *OpenGLDevice = @ptrCast(@alignCast(impl));
-    self.resolveGeometry(geometry).draw(&self.state_cache.bound_vao, first, count);
+    self.resolveGeometry(geometry).draw(&self.state_cache.bound_vao, first, count, base_vertex);
     _ = diagnostics.checkError("drawing indexed geometry");
 }
 
@@ -297,9 +297,9 @@ fn bindGraphicsPipeline(impl: *anyopaque, pipeline: RhiGraphicsPipeline) void {
     self.resolvePipeline(pipeline).bind(&self.state_cache);
 }
 
-fn graphicsPipelineUniformLocation(impl: *anyopaque, pipeline: RhiGraphicsPipeline, name: []const u8) ?RhiGraphicsPipeline.UniformLocation {
+fn graphicsPipelineUniformLocation(impl: *anyopaque, pipeline: RhiGraphicsPipeline, name_hash: u64) ?RhiGraphicsPipeline.UniformLocation {
     const self: *OpenGLDevice = @ptrCast(@alignCast(impl));
-    return self.resolvePipeline(pipeline).uniformLocation(name);
+    return self.resolvePipeline(pipeline).uniformLocationByHash(name_hash);
 }
 
 fn setGraphicsPipelineUniform(impl: *anyopaque, pipeline: RhiGraphicsPipeline, location: RhiGraphicsPipeline.UniformLocation, value: RhiGraphicsPipeline.UniformValue) void {

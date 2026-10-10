@@ -5,6 +5,13 @@ const gl = @import("../../c.zig").glad;
 
 const OpenGLTexture = @This();
 
+// EXT_texture_compression_s3tc and its sRGB variants (EXT_texture_sRGB). Not
+// core in any GL version, so glad's core header doesn't define them.
+const GL_COMPRESSED_RGB_S3TC_DXT1_EXT = 0x83F0;
+const GL_COMPRESSED_RGBA_S3TC_DXT5_EXT = 0x83F3;
+const GL_COMPRESSED_SRGB_S3TC_DXT1_EXT = 0x8C4C;
+const GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT = 0x8C4F;
+
 id: u32,
 
 pub fn init(desc: Texture.Desc) !OpenGLTexture {
@@ -52,6 +59,7 @@ fn supports(format: Texture.Format) bool {
     }
 
     const extension: ?[:0]const u8 = switch (format) {
+        .bc1_unorm, .bc1_srgb, .bc3_unorm, .bc3_srgb => "GL_EXT_texture_compression_s3tc",
         .bc4_unorm, .bc5_unorm => "GL_ARB_texture_compression_rgtc",
         .bc6h_ufloat, .bc7_unorm, .bc7_srgb => "GL_ARB_texture_compression_bptc",
         else => null,
@@ -68,6 +76,7 @@ fn isCoreFormat(format: Texture.Format) bool {
     return switch (format) {
         .bc4_unorm, .bc5_unorm => gl.GLAD_GL_VERSION_3_0 != 0,
         .bc6h_ufloat, .bc7_unorm, .bc7_srgb => gl.GLAD_GL_VERSION_4_2 != 0,
+        .bc1_unorm, .bc1_srgb, .bc3_unorm, .bc3_srgb => false,
         else => true,
     };
 }
@@ -86,12 +95,17 @@ pub fn uploadFormat(format: Texture.Format) ?UploadFormat {
         .rgba8_srgb => .{ .internal = gl.GL_SRGB8_ALPHA8, .external = gl.GL_RGBA, .ty = gl.GL_UNSIGNED_BYTE },
         .rgb16_float => .{ .internal = gl.GL_RGB16F, .external = gl.GL_RGB, .ty = gl.GL_HALF_FLOAT },
         .rgba16_float => .{ .internal = gl.GL_RGBA16F, .external = gl.GL_RGBA, .ty = gl.GL_HALF_FLOAT },
+        .rgb9e5_ufloat => .{ .internal = gl.GL_RGB9_E5, .external = gl.GL_RGB, .ty = gl.GL_UNSIGNED_INT_5_9_9_9_REV },
         else => null,
     };
 }
 
 fn compressedInternalFormat(format: Texture.Format) ?u32 {
     return switch (format) {
+        .bc1_unorm => GL_COMPRESSED_RGB_S3TC_DXT1_EXT,
+        .bc1_srgb => GL_COMPRESSED_SRGB_S3TC_DXT1_EXT,
+        .bc3_unorm => GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
+        .bc3_srgb => GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT,
         .bc4_unorm => gl.GL_COMPRESSED_RED_RGTC1,
         .bc5_unorm => gl.GL_COMPRESSED_RG_RGTC2,
         .bc6h_ufloat => gl.GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT,

@@ -21,7 +21,8 @@ pub const Time = @import("core/time.zig");
 pub const SimulationTime = Time.SimulationClock;
 
 pub const AssetManager = @import("assets/asset_manager.zig").AssetManager;
-pub const RuntimeAssetManifest = @import("assets/manifest.zig");
+pub const AssetStore = @import("assets/source.zig").AssetStore;
+pub const AssetSource = @import("assets/source.zig").AssetSource;
 pub const AssetError = @import("assets/source.zig").AssetError;
 pub const ComponentTypeId = zimp.ComponentTypeId;
 pub const SceneEntityId = zimp.SceneEntityId;
@@ -101,7 +102,6 @@ test {
     _ = @import("scene/derive_schema.zig");
     _ = @import("scene/schema_registry.zig");
     _ = @import("assets/source.zig");
-    _ = @import("assets/manifest.zig");
     _ = @import("ecs/components.zig");
     _ = @import("assets/asset_manager.zig");
     _ = @import("core/runtime.zig");

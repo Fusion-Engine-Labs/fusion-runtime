@@ -1,5 +1,7 @@
 const std = @import("std");
-const Map = std.StringHashMap(i32);
+const zimp = @import("zimp");
+/// Active uniform locations keyed by `zimp.nameHash` of the uniform name.
+const Map = std.AutoHashMapUnmanaged(u64, u32);
 
 const rhi = @import("../rhi/graphics_pipeline.zig");
 const render_state = @import("render_state.zig");
@@ -9,12 +11,14 @@ const gl = c.glad;
 
 pub const GraphicsPipelineError = error{
     UnsupportedShaderCode,
+    TooManyShaderSourceParts,
     VertexShaderCreationFailed,
     FragmentShaderCreationFailed,
     VertexShaderCompilationFailed,
     FragmentShaderCompilationFailed,
     ProgramCreationFailed,
     ProgramLinkingFailed,
+    UniformNameHashCollision,
     OpenGLError,
     OutOfMemory,
 };
@@ -78,7 +82,17 @@ const InfoLog = struct {
     }
 };
 
-fn compileShader(comptime stage: enum { vertex, fragment }, source: []const u8) GraphicsPipelineError!u32 {
+const max_source_parts = 64;
+
+fn compileShader(comptime stage: enum { vertex, fragment }, parts: []const []const u8) GraphicsPipelineError!u32 {
+    if (parts.len > max_source_parts) return GraphicsPipelineError.TooManyShaderSourceParts;
+    var part_ptrs: [max_source_parts][*c]const u8 = undefined;
+    var part_lens: [max_source_parts]c_int = undefined;
+    for (parts, part_ptrs[0..parts.len], part_lens[0..parts.len]) |part, *ptr, *len| {
+        ptr.* = @ptrCast(part.ptr);
+        len.* = std.math.cast(c_int, part.len) orelse return GraphicsPipelineError.UnsupportedShaderCode;
+    }
+
     const shader_type = switch (stage) {
         .vertex => gl.GL_VERTEX_SHADER,
         .fragment => gl.GL_FRAGMENT_SHADER,
@@ -90,9 +104,7 @@ fn compileShader(comptime stage: enum { vertex, fragment }, source: []const u8) 
     };
     errdefer gl.glDeleteShader(shader);
 
-    const source_ptr: [*c]const u8 = @ptrCast(source.ptr);
-    const source_len: c_int = @intCast(source.len);
-    gl.glShaderSource(shader, 1, &source_ptr, &source_len);
+    gl.glShaderSource(shader, @intCast(parts.len), &part_ptrs, &part_lens);
     gl.glCompileShader(shader);
 
     var success: i32 = 0;
@@ -110,51 +122,57 @@ fn compileShader(comptime stage: enum { vertex, fragment }, source: []const u8) 
 }
 
 pub fn deinit(self: *GraphicsPipeline) void {
-    var it = self.uniforms.keyIterator();
-    while (it.next()) |key| {
-        self.allocator.free(key.*);
-    }
-
-    self.uniforms.deinit();
+    self.uniforms.deinit(self.allocator);
     gl.glDeleteProgram(self.id);
     self.id = 0;
 }
 
+/// Keys by name hash because cooked materials store only hashes. Two active
+/// uniforms with the same hash would make lookups ambiguous, so they fail the
+/// pipeline instead.
 fn getUniformLocations(program: u32, allocator: std.mem.Allocator) GraphicsPipelineError!Map {
     var count: i32 = 0;
     gl.glGetProgramiv(program, gl.GL_ACTIVE_UNIFORMS, &count);
 
     const uniform_count: u32 = @intCast(count);
-    var map = Map.init(allocator);
-    errdefer {
-        var it = map.keyIterator();
-        while (it.next()) |key| allocator.free(key.*);
-        map.deinit();
-    }
-    try map.ensureTotalCapacity(uniform_count);
+    var map: Map = .empty;
+    errdefer map.deinit(allocator);
+    try map.ensureTotalCapacity(allocator, uniform_count);
 
-    var name_buf: [256]u8 = undefined;
+    // Full names: a truncated name would hash differently, or make two
+    // uniforms look like a collision.
+    var max_length: i32 = 0;
+    gl.glGetProgramiv(program, gl.GL_ACTIVE_UNIFORM_MAX_LENGTH, &max_length);
+    const name_buf = try allocator.alloc(u8, @intCast(@max(max_length, 1)));
+    defer allocator.free(name_buf);
+
     for (0..uniform_count) |i| {
         var length: i32 = 0;
         var size: i32 = 0;
         var ty: u32 = 0;
-        gl.glGetActiveUniform(program, @intCast(i), name_buf.len, &length, &size, &ty, @ptrCast(&name_buf));
+        gl.glGetActiveUniform(program, @intCast(i), @intCast(name_buf.len), &length, &size, &ty, @ptrCast(name_buf.ptr));
         const name_slice = name_buf[0..@intCast(length)];
         name_buf[@intCast(length)] = 0;
-        const location = gl.glGetUniformLocation(program, @ptrCast(&name_buf));
-        const owned_name = try allocator.dupe(u8, name_slice);
-        map.putAssumeCapacity(owned_name, location);
+        const location = gl.glGetUniformLocation(program, @ptrCast(name_buf.ptr));
+        // Built-ins and block members have no location.
+        if (location < 0) continue;
+        const entry = map.getOrPutAssumeCapacity(zimp.nameHash(name_slice));
+        if (entry.found_existing) {
+            log.err("graphics pipeline uniform '{s}' has the same name hash as another uniform", .{name_slice});
+            return GraphicsPipelineError.UniformNameHashCollision;
+        }
+        entry.value_ptr.* = @intCast(location);
     }
 
     return map;
 }
 
 pub fn uniformLocation(self: *const GraphicsPipeline, name: []const u8) ?rhi.UniformLocation {
-    const location = self.uniforms.get(name) orelse return null;
-    if (location < 0) {
-        return null;
-    }
-    return .{ .slot = @intCast(location) };
+    return self.uniformLocationByHash(zimp.nameHash(name));
+}
+
+pub fn uniformLocationByHash(self: *const GraphicsPipeline, name_hash: u64) ?rhi.UniformLocation {
+    return .{ .slot = self.uniforms.get(name_hash) orelse return null };
 }
 
 pub fn setUniformFromLocation(_: *const GraphicsPipeline, location: rhi.UniformLocation, value: rhi.UniformValue) void {

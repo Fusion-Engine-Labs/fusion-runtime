@@ -21,100 +21,144 @@ const Mesh = @This();
 allocator: std.mem.Allocator,
 device: *Device,
 material_ids: []zimp.AssetId,
+/// One vertex array over buffers shared by every part.
+geometry: Geometry,
+buffers: []Buffer,
 parts: []Part,
 
 pub const Part = struct {
+    /// `Mesh.geometry`; parts don't own it.
     geometry: Geometry,
-    buffers: []Buffer,
+    /// Added to the part-local indices when drawing.
+    base_vertex: i32,
     transform: math.Mat4,
+    /// Positions dequantize as `bounds_min + q * pos_scale`.
     bounds_min: [3]f32,
     bounds_max: [3]f32,
+    pos_scale: [3]f32,
     submeshes: []Submesh,
     uv_min: [2]f32,
     uv_scale: [2]f32,
-
-    pub fn deinit(self: *Part, allocator: std.mem.Allocator, device: *Device) void {
-        allocator.free(self.submeshes);
-        device.destroyGeometry(&self.geometry);
-
-        for (self.buffers) |*buffer| {
-            device.destroyBuffer(buffer);
-        }
-        allocator.free(self.buffers);
-    }
 };
 
 pub const Submesh = struct { material_index: u16, index_offset: u32, index_count: u32 };
 
-pub fn loadFromZMesh(allocator: std.mem.Allocator, device: *Device, model: *const zimp.ZMesh, material_ids: []zimp.AssetId) !Mesh {
-    const parts = try allocator.alloc(Part, model.parts.len);
-    errdefer allocator.free(parts);
+/// Every stream and the index buffer of a cooked mesh, decoded into
+/// upload-ready bytes. Built on a loader thread, so `upload` on the render
+/// thread only creates GPU buffers.
+pub const Decoded = struct {
+    /// One allocation that `streams` and `indices` slice into.
+    buffer: []align(4) u8,
+    /// Empty for streams the mesh doesn't have.
+    streams: std.EnumArray(zimp.MeshStream, []u8),
+    indices: []align(4) u8,
 
-    var initialized: usize = 0;
-    errdefer for (parts[0..initialized]) |*part| part.deinit(allocator, device);
-    for (model.parts, parts) |source, *part| {
-        part.* = try loadPart(allocator, device, source.mesh, mat4FromArray(source.transform));
-        initialized += 1;
+    pub fn init(allocator: std.mem.Allocator, model: *const zimp.ZMesh) !Decoded {
+        var offsets = std.EnumArray(zimp.MeshStream, usize).initFill(0);
+        var total: usize = 0;
+        for (std.enums.values(zimp.MeshStream)) |stream| {
+            if (!model.hasStream(stream)) continue;
+            offsets.set(stream, total);
+            total = std.mem.alignForward(usize, total + model.decodedStreamSize(stream), 4);
+        }
+        const index_offset = total;
+        total += model.decodedIndexSize();
+
+        const buffer = try allocator.alignedAlloc(u8, .@"4", total);
+        errdefer allocator.free(buffer);
+        var streams = std.EnumArray(zimp.MeshStream, []u8).initFill(&.{});
+        for (std.enums.values(zimp.MeshStream)) |stream| {
+            if (!model.hasStream(stream)) continue;
+            const bytes = buffer[offsets.get(stream)..][0..model.decodedStreamSize(stream)];
+            try model.decodeStream(stream, bytes);
+            streams.set(stream, bytes);
+        }
+        const indices: []align(4) u8 = @alignCast(buffer[index_offset..][0..model.decodedIndexSize()]);
+        try model.decodeIndices(indices);
+        return .{ .buffer = buffer, .streams = streams, .indices = indices };
     }
-    return .{ .allocator = allocator, .device = device, .material_ids = material_ids, .parts = parts };
-}
 
-fn loadPart(allocator: std.mem.Allocator, device: *Device, mesh: zimp.formats.zmesh.MeshPart, transform: math.Mat4) !Part {
+    pub fn deinit(self: *Decoded, allocator: std.mem.Allocator) void {
+        allocator.free(self.buffer);
+        self.* = undefined;
+    }
+};
+
+/// Uploads `decoded` (from `model`) to the GPU. The cooked bytes and the
+/// decoded buffer can be freed afterwards.
+pub fn upload(allocator: std.mem.Allocator, device: *Device, model: *const zimp.ZMesh, decoded: *const Decoded, material_ids: []zimp.AssetId) !Mesh {
     var buffers: std.ArrayList(Buffer) = .empty;
     errdefer {
         for (buffers.items) |*b| device.destroyBuffer(b);
         buffers.deinit(allocator);
     }
-
     var streams: std.ArrayList(Geometry.VertexStream) = .empty;
     defer streams.deinit(allocator);
 
-    try addStream(allocator, device, &buffers, &streams, std.mem.sliceAsBytes(mesh.positions), AttributeLocation.Position, .Float3, false);
-    if (mesh.normals) |v| {
-        try addStream(allocator, device, &buffers, &streams, std.mem.sliceAsBytes(v), AttributeLocation.Normal, .Short2, true);
-    }
-    if (mesh.uv0) |v| {
-        try addStream(allocator, device, &buffers, &streams, std.mem.sliceAsBytes(v), AttributeLocation.UV0, .UShort2, true);
-    }
-    if (mesh.uv1) |v| {
-        try addStream(allocator, device, &buffers, &streams, std.mem.sliceAsBytes(v), AttributeLocation.UV1, .UShort2, true);
-    }
-    if (mesh.tangents) |v| {
-        try addStream(allocator, device, &buffers, &streams, std.mem.sliceAsBytes(v), AttributeLocation.Tangent, .Half4, false);
-    }
-    if (mesh.joint_indices) |v| {
-        try addStream(allocator, device, &buffers, &streams, std.mem.sliceAsBytes(v), AttributeLocation.JointIndices, .UShort4, false);
-    }
-    if (mesh.joint_weights) |v| {
-        try addStream(allocator, device, &buffers, &streams, std.mem.sliceAsBytes(v), AttributeLocation.JointWeights, .Half4, false);
+    for (std.enums.values(zimp.MeshStream)) |stream| {
+        if (!model.hasStream(stream)) continue;
+        const bytes = decoded.streams.get(stream);
+        const location: AttributeLocation, const data_type: layout.DataType, const normalized = switch (stream) {
+            .positions => .{ .Position, .UShort4Norm, true },
+            .normals => .{ .Normal, .Short2, true },
+            .tangents => .{ .Tangent, .Byte4, true },
+            .uv0 => .{ .UV0, .UShort2, true },
+            .uv1 => .{ .UV1, .UShort2, true },
+            .joints => .{ .JointIndices, if (model.jointFormat() == .u16) .UShort4 else .UByte4, false },
+            .weights => .{ .JointWeights, .UByte4Norm, true },
+        };
+        try addStream(allocator, device, &buffers, &streams, bytes, location, data_type, normalized);
     }
 
-    const index_bytes: []const u8 = if (mesh.indices_u16) |v| std.mem.sliceAsBytes(v) else if (mesh.indices_u32) |v| std.mem.sliceAsBytes(v) else return error.MissingIndexBuffer;
-    const index_format: Geometry.IndexFormat = if (mesh.indices_u16 != null) .u16 else .u32;
-    const index_count: u32 = if (mesh.indices_u16) |v| @intCast(v.len) else @intCast(mesh.indices_u32.?.len);
+    const index_bytes = decoded.indices;
     const index_buffer = try device.createBuffer(.{ .size = index_bytes.len, .usage = .{ .index = true }, .initial_data = index_bytes });
+    buffers.append(allocator, index_buffer) catch |err| {
+        var owned = index_buffer;
+        device.destroyBuffer(&owned);
+        return err;
+    };
+    const index_format: Geometry.IndexFormat = switch (model.indexFormat()) {
+        .u16 => .u16,
+        .u32 => .u32,
+    };
+    var geometry = try device.createGeometry(.{ .streams = streams.items, .index_buffer = index_buffer, .index_format = index_format, .index_count = model.indexCount() });
+    errdefer device.destroyGeometry(&geometry);
 
-    try buffers.append(allocator, index_buffer);
-    const geometry = try device.createGeometry(.{ .streams = streams.items, .index_buffer = index_buffer, .index_format = index_format, .index_count = index_count });
-    errdefer {
-        var g = geometry;
-        device.destroyGeometry(&g);
+    const parts = try allocator.alloc(Part, model.partCount());
+    errdefer allocator.free(parts);
+    var initialized: usize = 0;
+    errdefer for (parts[0..initialized]) |part| allocator.free(part.submeshes);
+    for (parts, 0..) |*part, i| {
+        const source = model.part(i);
+        const submeshes = try allocator.alloc(Submesh, source.submeshes.len);
+        for (source.submeshes, submeshes) |src, *dst| {
+            dst.* = .{ .material_index = src.material_index, .index_offset = src.index_offset, .index_count = src.index_count };
+        }
+        part.* = .{
+            .geometry = geometry,
+            .base_vertex = @intCast(source.base_vertex),
+            .transform = mat4FromArray(source.transform),
+            .bounds_min = source.aabb_min,
+            .bounds_max = source.aabb_max,
+            .pos_scale = .{
+                source.aabb_max[0] - source.aabb_min[0],
+                source.aabb_max[1] - source.aabb_min[1],
+                source.aabb_max[2] - source.aabb_min[2],
+            },
+            .uv_min = source.uv0_min,
+            .uv_scale = source.uv0_scale,
+            .submeshes = submeshes,
+        };
+        initialized += 1;
     }
 
-    const submeshes = try allocator.alloc(Submesh, mesh.submeshes.len);
-    errdefer allocator.free(submeshes);
-    for (mesh.submeshes, submeshes) |src, *dst| {
-        dst.* = .{ .material_index = src.material_index, .index_offset = src.index_offset, .index_count = src.index_count };
-    }
     return .{
+        .allocator = allocator,
+        .device = device,
+        .material_ids = material_ids,
         .geometry = geometry,
         .buffers = try buffers.toOwnedSlice(allocator),
-        .transform = transform,
-        .bounds_min = mesh.aabb_min,
-        .bounds_max = mesh.aabb_max,
-        .uv_min = mesh.uv0_min,
-        .uv_scale = mesh.uv0_scale,
-        .submeshes = submeshes,
+        .parts = parts,
     };
 }
 
@@ -149,8 +193,11 @@ pub fn materialIdForSlot(self: *const Mesh, slot: u16) ?zimp.AssetId {
 }
 
 pub fn deinit(self: *Mesh) void {
-    for (self.parts) |*part| part.deinit(self.allocator, self.device);
+    for (self.parts) |part| self.allocator.free(part.submeshes);
     self.allocator.free(self.parts);
+    self.device.destroyGeometry(&self.geometry);
+    for (self.buffers) |*buffer| self.device.destroyBuffer(buffer);
+    self.allocator.free(self.buffers);
     self.allocator.free(self.material_ids);
 }
 
@@ -162,4 +209,32 @@ test "mat4 conversion preserves translation" {
     const m = mat4FromArray(.{ 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 2, 3, 4, 1 });
     const p = math.Vec3.zero.transformPosition(m);
     try std.testing.expectEqual(@as(f32, 2), p.x);
+}
+
+test "Decoded holds each present stream and the indices, decoded" {
+    const allocator = std.testing.allocator;
+    var buf: [4096]u8 align(16) = undefined;
+    var writer = std.Io.Writer.fixed(&buf);
+    try zimp.formats.zmesh.writeTestZmeshFile(&writer);
+    const model = try zimp.formats.zmesh.view(buf[0..writer.end]);
+
+    var decoded = try Decoded.init(allocator, &model);
+    defer decoded.deinit(allocator);
+
+    for (std.enums.values(zimp.MeshStream)) |stream| {
+        const bytes = decoded.streams.get(stream);
+        if (!model.hasStream(stream)) {
+            try std.testing.expectEqual(@as(usize, 0), bytes.len);
+            continue;
+        }
+        const expected = try allocator.alloc(u8, model.decodedStreamSize(stream));
+        defer allocator.free(expected);
+        try model.decodeStream(stream, expected);
+        try std.testing.expectEqualSlices(u8, expected, bytes);
+        try std.testing.expectEqual(@as(usize, 0), @intFromPtr(bytes.ptr) % 4);
+    }
+    const expected_indices = try allocator.alignedAlloc(u8, .@"4", model.decodedIndexSize());
+    defer allocator.free(expected_indices);
+    try model.decodeIndices(expected_indices);
+    try std.testing.expectEqualSlices(u8, expected_indices, decoded.indices);
 }

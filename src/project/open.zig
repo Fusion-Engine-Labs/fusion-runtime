@@ -7,6 +7,7 @@ const Project = @import("project.zig");
 
 pub const OpenProjectOptions = struct {
     root_path: []const u8,
+    asset_source: zimp.runtime.AssetStore.Source = .loose,
 };
 
 pub fn open(allocator: std.mem.Allocator, io: std.Io, opts: OpenProjectOptions) !Project {
@@ -28,6 +29,7 @@ pub fn open(allocator: std.mem.Allocator, io: std.Io, opts: OpenProjectOptions) 
     return .{
         .manifest = manifest,
         .root_dir = root_dir,
+        .asset_source = opts.asset_source,
     };
 }
 

@@ -185,6 +185,8 @@ fn renderQueue(self: *Renderer, view: math.Mat4, projection: math.Mat4, camera_p
     var normal_matrix_location: ?GraphicsPipeline.UniformLocation = null;
     var uv_min_location: ?GraphicsPipeline.UniformLocation = null;
     var uv_scale_location: ?GraphicsPipeline.UniformLocation = null;
+    var pos_min_location: ?GraphicsPipeline.UniformLocation = null;
+    var pos_scale_location: ?GraphicsPipeline.UniformLocation = null;
 
     // Uniform values are per-program state, so these caches are only valid while
     // the same pipeline stays bound and are cleared on every pipeline switch.
@@ -198,10 +200,15 @@ fn renderQueue(self: *Renderer, view: math.Mat4, projection: math.Mat4, camera_p
             self.device.bindGraphicsPipeline(pipeline);
             bound_pipeline = pipeline.sort_key;
 
+            // Lookups are by name hash. zimp's material cooker checks these
+            // names for hash collisions (`runtime_uniform_names`), so keep the
+            // two lists in sync.
             model_location = self.device.graphicsPipelineUniformLocation(pipeline, "u_model");
             normal_matrix_location = self.device.graphicsPipelineUniformLocation(pipeline, "u_normal_matrix");
             uv_min_location = self.device.graphicsPipelineUniformLocation(pipeline, "u_uv0_min");
             uv_scale_location = self.device.graphicsPipelineUniformLocation(pipeline, "u_uv0_scale");
+            pos_min_location = self.device.graphicsPipelineUniformLocation(pipeline, "u_pos_min");
+            pos_scale_location = self.device.graphicsPipelineUniformLocation(pipeline, "u_pos_scale");
 
             self.device.setGraphicsPipelineUniformByName(pipeline, "u_view", .{ .mat4 = view.fields });
             self.device.setGraphicsPipelineUniformByName(pipeline, "u_projection", .{ .mat4 = projection.fields });
@@ -233,8 +240,18 @@ fn renderQueue(self: *Renderer, view: math.Mat4, projection: math.Mat4, camera_p
             uploaded_model = draw_item.model;
         }
 
-        // The UV transform is a property of the part, shared by its submeshes.
+        // Position and UV dequantization are properties of the part, shared
+        // by its submeshes. They stay out of `u_model`: the position scale is
+        // non-uniform and would skew `u_normal_matrix`.
         if (uploaded_part != draw_item.part) {
+            if (pos_min_location) |location| {
+                self.device.setGraphicsPipelineUniform(pipeline, location, .{ .vec3 = draw_item.part.bounds_min });
+            }
+
+            if (pos_scale_location) |location| {
+                self.device.setGraphicsPipelineUniform(pipeline, location, .{ .vec3 = draw_item.part.pos_scale });
+            }
+
             if (uv_min_location) |location| {
                 self.device.setGraphicsPipelineUniform(pipeline, location, .{ .vec2 = draw_item.part.uv_min });
             }
@@ -246,7 +263,7 @@ fn renderQueue(self: *Renderer, view: math.Mat4, projection: math.Mat4, camera_p
             uploaded_part = draw_item.part;
         }
 
-        self.device.drawIndexed(draw_item.part.geometry, draw_item.submesh.index_offset, draw_item.submesh.index_count);
+        self.device.drawIndexed(draw_item.part.geometry, draw_item.submesh.index_offset, draw_item.submesh.index_count, draw_item.part.base_vertex);
     }
 }
 

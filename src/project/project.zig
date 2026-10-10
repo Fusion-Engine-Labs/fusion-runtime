@@ -7,6 +7,9 @@ const Project = @This();
 
 manifest: zimp.ProjectManifest,
 root_dir: std.Io.Dir,
+/// Where the asset manager loads cooked assets from: the loose cooked
+/// directory (editor and dev) or the project's `asset_pack` (shipping).
+asset_source: zimp.runtime.AssetStore.Source = .loose,
 
 pub fn watchAssets(self: *const Project, allocator: std.mem.Allocator, io: std.Io) !*zimp.WatchHandle {
     return zimp.WatchHandle.start(

@@ -21,8 +21,8 @@
             .hash = "zcs-0.0.0-ypv9mxZ0AQB7PP0h7ayQOoc3YD1t0-tiJyXPDLHR3cuW",
         },
         .zimp = .{
-            .url = "git+https://github.com/Fusion-Engine-Labs/zimp.git#6abdcbb18fcfbeb322e4c0b7320d92fb9d176672",
-            .hash = "zimp-0.0.0-jO8AWhdSEwDyI8tRYUowhw18d1OFRG7RtArvfr-S3YJi",
+            .url = "git+https://github.com/Fusion-Engine-Labs/zimp.git#583143cd394b33a94f8507f2dab1e2ef599d9ddc",
+            .hash = "zimp-0.0.0-jO8AWruDNQD1ddRD8_jMZn-MpDTVCU3f7GIUPZLb3kkT",
         },
         .fusion_sdk = .{
             .url = "git+https://github.com/Fusion-Engine-Labs/fusion-sdk.git#bdfa924221e3ecd2446566af89ddaadc0e44dac5",

@@ -52,7 +52,7 @@ pub fn init(streams: []const Stream, index_buffer_id: u32, format: Geometry.Inde
     return .{ .id = id, .index_format = format, .index_count = count };
 }
 
-pub fn draw(self: OpenGLGeometry, bound_vao: *u32, first: u32, count: u32) void {
+pub fn draw(self: OpenGLGeometry, bound_vao: *u32, first: u32, count: u32, base_vertex: i32) void {
     std.debug.assert(first + count <= self.index_count);
     const size: usize = if (self.index_format == .u16) 2 else 4;
 
@@ -60,11 +60,12 @@ pub fn draw(self: OpenGLGeometry, bound_vao: *u32, first: u32, count: u32) void 
         gl.glBindVertexArray(self.id);
         bound_vao.* = self.id;
     }
-    gl.glDrawElements(
+    gl.glDrawElementsBaseVertex(
         gl.GL_TRIANGLES,
         @intCast(count),
         if (self.index_format == .u16) gl.GL_UNSIGNED_SHORT else gl.GL_UNSIGNED_INT,
         if (first == 0) null else @ptrFromInt(@as(usize, first) * size),
+        base_vertex,
     );
 }
 
@@ -79,7 +80,9 @@ fn glType(dt: layout.DataType) u32 {
         .Int, .Int2, .Int3, .Int4 => gl.GL_INT,
         .Bool => gl.GL_BOOL,
         .Short2 => gl.GL_SHORT,
-        .UShort2, .UShort4 => gl.GL_UNSIGNED_SHORT,
+        .UShort2, .UShort4, .UShort4Norm => gl.GL_UNSIGNED_SHORT,
+        .Byte4 => gl.GL_BYTE,
+        .UByte4, .UByte4Norm => gl.GL_UNSIGNED_BYTE,
         .Half4 => gl.GL_HALF_FLOAT,
     };
 }

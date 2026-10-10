@@ -27,8 +27,7 @@ pub const Desc = struct {
     address_v: AddressMode = .repeat,
     max_anisotropy: f32 = 8,
 
-    pub fn fromTextureSlotEntry(entry: zimp.TextureSlotEntry) Desc {
-        const sampler = entry.sampler;
+    pub fn fromSamplerDesc(sampler: zimp.SamplerDesc) Desc {
         return .{
             .min_filter = convert(Filter, sampler.min_filter),
             .mag_filter = convert(Filter, sampler.mag_filter),

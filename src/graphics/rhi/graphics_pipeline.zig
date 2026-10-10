@@ -2,7 +2,8 @@ const ResourceHandle = @import("resource_handle.zig");
 const render_state = @import("../render_state.zig");
 
 pub const ShaderCode = union(enum) {
-    glsl: []const u8,
+    /// Source pieces compiled as one concatenated string.
+    glsl: []const []const u8,
     spirv: []const u32,
 };
 

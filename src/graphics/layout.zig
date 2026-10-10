@@ -21,7 +21,13 @@ pub const DataType = enum {
     Short2,
     UShort2,
     UShort4,
+    /// `UShort4` read as floats (bind with `normalized`).
+    UShort4Norm,
     Half4,
+    Byte4,
+    UByte4,
+    /// `UByte4` read as floats (bind with `normalized`).
+    UByte4Norm,
 
     const Info = struct { size: u32, components: u32, integer: bool };
 
@@ -40,7 +46,11 @@ pub const DataType = enum {
         .Short2 = .{ .size = 4, .components = 2, .integer = false },
         .UShort2 = .{ .size = 4, .components = 2, .integer = false },
         .UShort4 = .{ .size = 8, .components = 4, .integer = true },
+        .UShort4Norm = .{ .size = 8, .components = 4, .integer = false },
         .Half4 = .{ .size = 8, .components = 4, .integer = false },
+        .Byte4 = .{ .size = 4, .components = 4, .integer = false },
+        .UByte4 = .{ .size = 4, .components = 4, .integer = true },
+        .UByte4Norm = .{ .size = 4, .components = 4, .integer = false },
     });
 
     pub fn size(dt: DataType) u32 {
@@ -78,7 +88,11 @@ test "DataType reports upload metadata" {
         .{ .data_type = .Short2, .size = 4, .components = 2, .is_integer = false },
         .{ .data_type = .UShort2, .size = 4, .components = 2, .is_integer = false },
         .{ .data_type = .UShort4, .size = 8, .components = 4, .is_integer = true },
+        .{ .data_type = .UShort4Norm, .size = 8, .components = 4, .is_integer = false },
         .{ .data_type = .Half4, .size = 8, .components = 4, .is_integer = false },
+        .{ .data_type = .Byte4, .size = 4, .components = 4, .is_integer = false },
+        .{ .data_type = .UByte4, .size = 4, .components = 4, .is_integer = true },
+        .{ .data_type = .UByte4Norm, .size = 4, .components = 4, .is_integer = false },
     };
 
     try std.testing.expectEqual(@typeInfo(DataType).@"enum".fields.len, cases.len);

@@ -25,8 +25,8 @@
             .hash = "zob-1.2.0-qYajyLa8AAA0NgQZaYY6DTC8GuKqWlgpOXkq-Xze4soh",
         },
         .zimp = .{
-            .url = "git+https://github.com/Fusion-Engine-Labs/zimp.git#80b76da76d836e4eb347cb22424e061ab45196a3",
-            .hash = "zimp-0.0.0-jO8AWqpREwC2UpIz-wPOSSGNeLI945vSbaHHs0k0EsU6",
+            .url = "git+https://github.com/Fusion-Engine-Labs/zimp.git#583143cd394b33a94f8507f2dab1e2ef599d9ddc",
+            .hash = "zimp-0.0.0-jO8AWruDNQD1ddRD8_jMZn-MpDTVCU3f7GIUPZLb3kkT",
         },
     },
     .paths = .{

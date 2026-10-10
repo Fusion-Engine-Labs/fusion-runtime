@@ -1,3 +1,4 @@
+const zimp = @import("zimp");
 const GraphicsPipeline = @import("graphics_pipeline.zig");
 const render_state = @import("../render_state.zig");
 const TextureView = @import("texture_view.zig");
@@ -97,12 +98,13 @@ pub const VTable = struct {
     destroyBuffer: *const fn (*anyopaque, *Buffer) void,
     createGeometry: *const fn (*anyopaque, Geometry.Desc) anyerror!Geometry,
     destroyGeometry: *const fn (*anyopaque, *Geometry) void,
-    drawIndexed: *const fn (*anyopaque, Geometry, u32, u32) void,
+    drawIndexed: *const fn (*anyopaque, Geometry, u32, u32, i32) void,
 
     createGraphicsPipeline: *const fn (*anyopaque, GraphicsPipeline.GraphicsPipelineDesc) anyerror!GraphicsPipeline,
     destroyGraphicsPipeline: *const fn (*anyopaque, *GraphicsPipeline) void,
     bindGraphicsPipeline: *const fn (*anyopaque, GraphicsPipeline) void,
-    graphicsPipelineUniformLocation: *const fn (*anyopaque, GraphicsPipeline, []const u8) ?GraphicsPipeline.UniformLocation,
+    /// Looks a uniform up by `zimp.nameHash` of its name.
+    graphicsPipelineUniformLocation: *const fn (*anyopaque, GraphicsPipeline, u64) ?GraphicsPipeline.UniformLocation,
     setGraphicsPipelineUniform: *const fn (*anyopaque, GraphicsPipeline, GraphicsPipeline.UniformLocation, GraphicsPipeline.UniformValue) void,
 
     beginGpuTimer: *const fn (*anyopaque) void,
@@ -176,8 +178,9 @@ pub fn createGeometry(self: *Device, desc: Geometry.Desc) anyerror!Geometry {
 pub fn destroyGeometry(self: *Device, value: *Geometry) void {
     self.vtable.destroyGeometry(self.impl, value);
 }
-pub fn drawIndexed(self: *Device, geometry: Geometry, first_index: u32, index_count: u32) void {
-    self.vtable.drawIndexed(self.impl, geometry, first_index, index_count);
+/// `base_vertex` is added to every index before fetching vertices.
+pub fn drawIndexed(self: *Device, geometry: Geometry, first_index: u32, index_count: u32, base_vertex: i32) void {
+    self.vtable.drawIndexed(self.impl, geometry, first_index, index_count, base_vertex);
 }
 
 pub fn createGraphicsPipeline(self: *Device, desc: GraphicsPipeline.GraphicsPipelineDesc) anyerror!GraphicsPipeline {
@@ -190,7 +193,11 @@ pub fn bindGraphicsPipeline(self: *Device, value: GraphicsPipeline) void {
     self.vtable.bindGraphicsPipeline(self.impl, value);
 }
 pub fn graphicsPipelineUniformLocation(self: *Device, value: GraphicsPipeline, name: []const u8) ?GraphicsPipeline.UniformLocation {
-    return self.vtable.graphicsPipelineUniformLocation(self.impl, value, name);
+    return self.graphicsPipelineUniformLocationByHash(value, zimp.nameHash(name));
+}
+/// `name_hash` is `zimp.nameHash` of the uniform name, as cooked materials store it.
+pub fn graphicsPipelineUniformLocationByHash(self: *Device, value: GraphicsPipeline, name_hash: u64) ?GraphicsPipeline.UniformLocation {
+    return self.vtable.graphicsPipelineUniformLocation(self.impl, value, name_hash);
 }
 pub fn setGraphicsPipelineUniform(self: *Device, pipeline: GraphicsPipeline, location: GraphicsPipeline.UniformLocation, value: GraphicsPipeline.UniformValue) void {
     self.vtable.setGraphicsPipelineUniform(self.impl, pipeline, location, value);

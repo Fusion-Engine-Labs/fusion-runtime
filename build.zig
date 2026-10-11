@@ -1,7 +1,6 @@
 const std = @import("std");
-const zimp = @import("zimp");
 
-pub const addProjectCookStep = zimp.addProjectCookStep;
+pub const addProjectCookStep = @import("fusion_sdk").addProjectCookStep;
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
@@ -9,11 +8,9 @@ pub fn build(b: *std.Build) void {
 
     const sdk_dep = b.dependency("fusion_sdk", .{ .target = target, .optimize = optimize });
 
-    const zimp_dep = b.dependency("zimp", .{
-        .target = target,
-        .optimize = optimize,
-    });
-    b.modules.put(b.graph.arena, b.dupe("zimp"), zimp_dep.module("zimp")) catch @panic("OOM");
+    // zimp comes from the SDK so the host and games share one pin and one set of types.
+    const zimp_mod = sdk_dep.module("zimp");
+    b.modules.put(b.graph.arena, b.dupe("zimp"), zimp_mod) catch @panic("OOM");
 
     const zob_dep = b.dependency("zob", .{
         .target = target,
@@ -45,7 +42,7 @@ pub fn build(b: *std.Build) void {
         .sdk = sdk_dep.module("fusion_sdk"),
         .glfw = glfw_dep.artifact("glfw"),
         .glad = glad_dep.artifact("glad"),
-        .zimp = zimp_dep.module("zimp"),
+        .zimp = zimp_mod,
         .zob = zob_dep.module("zob"),
         .zcs = zcs_dep.module("zcs"),
     };

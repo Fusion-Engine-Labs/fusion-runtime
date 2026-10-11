@@ -61,7 +61,9 @@ test "camera projection uses the render-view aspect" {
 test "active camera is marked on its entity" {
     var world = zcs.World.init(std.testing.allocator);
     defer world.deinit();
-    _ = try ecs.registerEngineComponents(&world);
+    var schemas = @import("schema_registry.zig").init(std.testing.allocator);
+    defer schemas.deinit();
+    try ecs.registerEngineComponents(&world, &schemas);
 
     const first = try world.spawnWith(.{
         components.TransformComponent{},
@@ -89,7 +91,9 @@ test "active camera is marked on its entity" {
 test "active camera must have camera and transform components" {
     var world = zcs.World.init(std.testing.allocator);
     defer world.deinit();
-    _ = try ecs.registerEngineComponents(&world);
+    var schemas = @import("schema_registry.zig").init(std.testing.allocator);
+    defer schemas.deinit();
+    try ecs.registerEngineComponents(&world, &schemas);
 
     const entity = try world.spawn();
     try std.testing.expectError(error.InvalidCamera, setActive(&world, entity));

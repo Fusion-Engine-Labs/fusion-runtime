@@ -12,27 +12,24 @@
             .url = "git+https://github.com/jackparsonss/zig.glad.git#e973c2a302d8217f6f1a65f46f5222892fe26429",
             .hash = "zig_glad-0.0.4-6OirnjjXBgDv6gERB59NTaXKyaHC9xidaDsn-qSgOZy3",
         },
-        .zlm = .{
-            .url = "git+https://github.com/ziglibs/zlm.git#35ab7df57cfb5392a11486f6e4b03a82f849a118",
-            .hash = "zlm-0.1.0-LoZ6yDawAADMopilIe9MDzer0UqmruCy_PuhNv4OMc7c",
-        },
-        .zcs = .{
-            .url = "git+https://github.com/Fusion-Engine-Labs/zcs.git#d295fac0d7188432df67740d9a1784f83694c5fb",
-            .hash = "zcs-0.0.0-ypv9m1t0AQDDGotABbwLVRn_qkUD5iO37fO8xqjifZ4x",
-        },
         .zob = .{
             .url = "git+https://github.com/Fusion-Engine-Labs/zob.git#c4ee545ba07e59c4aac95bd5c39f932d2ee9668d",
             .hash = "zob-1.2.0-qYajyLa8AAA0NgQZaYY6DTC8GuKqWlgpOXkq-Xze4soh",
         },
-        .zimp = .{
-            .url = "git+https://github.com/Fusion-Engine-Labs/zimp.git#583143cd394b33a94f8507f2dab1e2ef599d9ddc",
-            .hash = "zimp-0.0.0-jO8AWruDNQD1ddRD8_jMZn-MpDTVCU3f7GIUPZLb3kkT",
+        .zcs = .{
+            .url = "git+https://github.com/Fusion-Engine-Labs/zcs.git#4376295124b1c8cd3215a1ef01494183a76f5873",
+            .hash = "zcs-0.0.0-ypv9mxZ0AQB7PP0h7ayQOoc3YD1t0-tiJyXPDLHR3cuW",
+        },
+        .fusion_sdk = .{
+            .url = "git+https://github.com/Fusion-Engine-Labs/fusion-sdk.git#58f93225b08855de5ff2499556207f6a313bb82a",
+            .hash = "fusion_sdk-0.0.0-tQKBDjvqAABi-Y2BaBanKg_LYx7xsXf82oQJzVFWuUcO",
         },
     },
     .paths = .{
         "build.zig",
         "build.zig.zon",
         "src",
+        "tests",
         "LICENSE",
         "README.md",
     },

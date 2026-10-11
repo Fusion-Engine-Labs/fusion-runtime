@@ -6,11 +6,13 @@ const ComponentTypeId = zimp.id.types.ComponentTypeId;
 const deriveCodec = @import("derive_schema.zig").deriveCodec;
 
 const SchemaRegistry = @This();
+const DynamicComponent = @import("dynamic_component.zig");
 const Codec = codec_mod.ComponentCodec;
 
 allocator: std.mem.Allocator,
 codecs: std.AutoHashMap(ComponentTypeId, Codec),
 names: std.StringHashMap(ComponentTypeId),
+dynamic: std.ArrayList(*DynamicComponent) = .empty,
 
 pub fn init(allocator: std.mem.Allocator) SchemaRegistry {
     return .{
@@ -23,6 +25,10 @@ pub fn init(allocator: std.mem.Allocator) SchemaRegistry {
 pub fn deinit(self: *SchemaRegistry) void {
     self.codecs.deinit();
     self.names.deinit();
+    for (self.dynamic.items) |d| {
+        d.deinit(self.allocator);
+    }
+    self.dynamic.deinit(self.allocator);
 }
 
 pub fn registerComponents(self: *SchemaRegistry, comptime components: []const type) !void {
@@ -36,17 +42,41 @@ pub fn registerComponents(self: *SchemaRegistry, comptime components: []const ty
 pub fn register(self: *SchemaRegistry, comptime Component: type) !void {
     const codec = comptime deriveCodec(Component);
     try zimp.scene.validateSchema(codec.schema);
-
-    if (self.codecs.contains(codec.schema.id)) {
-        return error.DuplicateComponentId;
-    }
-
-    if (self.names.contains(codec.schema.name)) {
-        return error.DuplicateComponentName;
-    }
+    try self.ensureUnique(codec.schema);
 
     try self.codecs.put(codec.schema.id, codec);
     try self.names.put(codec.schema.name, codec.schema.id);
+}
+
+pub fn registerDynamic(self: *SchemaRegistry, world: *@import("zcs").World, json: []const u8) !void {
+    const d = try DynamicComponent.init(self.allocator, json);
+    errdefer d.deinit(self.allocator);
+
+    const schema = d.parsed.value.schema;
+    try self.ensureUnique(schema);
+    try self.dynamic.ensureUnusedCapacity(self.allocator, 1);
+    try self.codecs.ensureUnusedCapacity(1);
+    try self.names.ensureUnusedCapacity(1);
+
+    d.id = try world.register(.{
+        .name = schema.name,
+        .size = d.parsed.value.defaults.len,
+        .alignment = 1,
+        .schema_hash = zimp.scene.descriptor.schemaHash(&.{schema}),
+    });
+    self.codecs.putAssumeCapacity(schema.id, .{ .schema = schema, .impl = .{ .dynamic = d } });
+    self.names.putAssumeCapacity(schema.name, schema.id);
+    self.dynamic.appendAssumeCapacity(d);
+}
+
+fn ensureUnique(self: *const SchemaRegistry, schema: zimp.scene.ComponentSchema) !void {
+    if (self.codecs.contains(schema.id)) {
+        return error.DuplicateComponentId;
+    }
+
+    if (self.names.contains(schema.name)) {
+        return error.DuplicateComponentName;
+    }
 }
 
 pub fn get(self: *const SchemaRegistry, id: ComponentTypeId) ?*const Codec {

@@ -1,6 +1,7 @@
 const std = @import("std");
 const zimp = @import("zimp");
 
+const GameLibrary = @import("../core/game_module.zig").GameLibrary;
 const scene = zimp.scene;
 
 const Project = @This();
@@ -47,6 +48,15 @@ pub fn saveScene(self: *const Project, allocator: std.mem.Allocator, io: std.Io,
 pub fn loadDefaultScene(self: *const Project, allocator: std.mem.Allocator, io: std.Io) !zimp.scene.SceneDocument {
     const path = self.manifest.default_scene orelse return error.DefaultSceneNotFound;
     return self.loadScene(allocator, io, path);
+}
+
+/// Opens the manifest's `game_library`, resolved against the project root.
+/// Null when the project has no game code.
+pub fn openGameLibrary(self: *const Project, allocator: std.mem.Allocator, io: std.Io) !?GameLibrary {
+    const path = self.manifest.game_library orelse return null;
+    const absolute_path = try self.root_dir.realPathFileAlloc(io, path, allocator);
+    defer allocator.free(absolute_path);
+    return try GameLibrary.open(absolute_path);
 }
 
 const testing = std.testing;
@@ -120,4 +130,24 @@ test "loadDefaultScene fails when the manifest has no default scene" {
         error.DefaultSceneNotFound,
         project.loadDefaultScene(testing.allocator, testing.io),
     );
+}
+
+test "openGameLibrary returns null when the manifest has no game library" {
+    var tmp = testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const project = Project{ .manifest = testManifest(null), .root_dir = tmp.dir };
+
+    try testing.expect(try project.openGameLibrary(testing.allocator, testing.io) == null);
+}
+
+test "openGameLibrary looks for the game library under the project root" {
+    var tmp = testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    var manifest = testManifest(null);
+    manifest.game_library = "zig-out/lib/libgame.so";
+    const project = Project{ .manifest = manifest, .root_dir = tmp.dir };
+
+    try testing.expectError(error.FileNotFound, project.openGameLibrary(testing.allocator, testing.io));
 }

@@ -5,24 +5,28 @@
     .minimum_zig_version = "0.16.0",
     .dependencies = .{
         .glfw_zig = .{
-            .url = "git+https://github.com/tiawl/glfw.zig#32a093cd869a0694ca2c0306680f7c7bc5dcd0b9",
-            .hash = "glfw_zig-1.0.0-NrvYoyvRGQDgKTTvaAaJLZWQsL6AL5F8jGsBla2V275Y",
+            .url = "git+https://github.com/tiawl/glfw.zig#cc8704503a4375d3f6481aef4d63c827d9e27702",
+            .hash = "glfw_zig-1.0.0-NrvYo0o9GgCstvf_PtUHNmzTGsOXqhMhLzE82VPK05NW",
         },
         .zig_glad = .{
-            .url = "git+https://github.com/jackparsonss/zig.glad.git#e973c2a302d8217f6f1a65f46f5222892fe26429",
-            .hash = "zig_glad-0.0.4-6OirnjjXBgDv6gERB59NTaXKyaHC9xidaDsn-qSgOZy3",
+            .url = "git+https://github.com/jackparsonss/zig.glad.git#0fbb12e2f5b9d54f4746c61a18e09b0684a4d6a9",
+            .hash = "zig_glad-0.0.4-6OirnlHXBgAnuMR-izdxXDhV3dvnWw0V90kslFx8_zzB",
         },
         .zob = .{
-            .url = "git+https://github.com/Fusion-Engine-Labs/zob.git#c4ee545ba07e59c4aac95bd5c39f932d2ee9668d",
-            .hash = "zob-1.2.0-qYajyLa8AAA0NgQZaYY6DTC8GuKqWlgpOXkq-Xze4soh",
+            .url = "git+https://github.com/Fusion-Engine-Labs/zob.git#7a9e73c34413bc23e41a64f0e1cf80eecc201759",
+            .hash = "zob-1.2.0-qYajyJu8AACAIh6ql5GsHW49zvb-UCKyf1Py8bsKzeVl",
         },
         .zcs = .{
-            .url = "git+https://github.com/Fusion-Engine-Labs/zcs.git#4376295124b1c8cd3215a1ef01494183a76f5873",
-            .hash = "zcs-0.0.0-ypv9mxZ0AQB7PP0h7ayQOoc3YD1t0-tiJyXPDLHR3cuW",
+            .url = "git+https://github.com/Fusion-Engine-Labs/zcs.git#066d91a23083101c0b2433cf8428e2f2d058d89e",
+            .hash = "zcs-0.0.0-ypv9m0l1AQD4OPLF0DZrRR_bIciftG6OKEWdvbWvxhxM",
         },
         .fusion_sdk = .{
-            .url = "git+https://github.com/Fusion-Engine-Labs/fusion-sdk.git#58f93225b08855de5ff2499556207f6a313bb82a",
-            .hash = "fusion_sdk-0.0.0-tQKBDjvqAABi-Y2BaBanKg_LYx7xsXf82oQJzVFWuUcO",
+            .url = "git+https://github.com/Fusion-Engine-Labs/fusion-sdk.git#e7311847a91536d10c47c52f150f4cb56076fc01",
+            .hash = "fusion_sdk-0.0.0-tQKBDrgeAQCP_SN2sKcjLpTQwJKudIBE8Giw4PFasBeT",
+        },
+        .translate_c = .{
+            .url = "git+https://codeberg.org/ziglang/translate-c?ref=2.0.1#4f5ad374e50d1a98d3da79fa5d3bda9949103bf7",
+            .hash = "translate_c-2.0.1-Q_BUWmpOBwCIhy--up1q6cl3OlIQE86iJU8R-bZ01aPj",
         },
     },
     .paths = .{

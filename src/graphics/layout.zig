@@ -95,7 +95,7 @@ test "DataType reports upload metadata" {
         .{ .data_type = .UByte4Norm, .size = 4, .components = 4, .is_integer = false },
     };
 
-    try std.testing.expectEqual(@typeInfo(DataType).@"enum".fields.len, cases.len);
+    try std.testing.expectEqual(@typeInfo(DataType).@"enum".field_names.len, cases.len);
 
     for (cases) |case| {
         try std.testing.expectEqual(case.size, case.data_type.size());

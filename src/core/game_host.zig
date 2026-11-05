@@ -18,7 +18,7 @@ builtin_ids: [builtin_types.len]u32,
 pub fn init(world: *zcs.World, schemas: *SchemaRegistry, registering: bool) Self {
     var self: Self = .{ .world = world, .schemas = schemas, .registering = registering, .builtin_ids = undefined };
     inline for (builtin_types, &self.builtin_ids) |T, *out| {
-        out.* = if (world.componentId(T)) |native| @intFromEnum(native) else 0;
+        out.* = if (world.componentId(T)) |native| @backingInt(native) else 0;
     }
     return self;
 }
@@ -58,7 +58,7 @@ fn resolve(ctx: *anyopaque, uuid: *const [16]u8, layout: u64, size: u32) callcon
             if (layout != d.parsed.value.layout or size != d.parsed.value.defaults.len) {
                 return 0;
             }
-            return @intFromEnum(d.id);
+            return @backingInt(d.id);
         },
         .static => inline for (builtin_types, self.builtin_ids) |T, native| {
             if (codec.schema.id.eql(comptime sdk.schema.deriveSchema(T).id)) {
@@ -78,7 +78,7 @@ fn validId(self: *Self, id: u32) bool {
 
 fn findDynamic(self: *Self, id: u32) ?*DynamicComponent {
     for (self.schemas.dynamic.items) |d| {
-        if (id == @intFromEnum(d.id)) return d;
+        if (id == @backingInt(d.id)) return d;
     }
     return null;
 }
@@ -103,7 +103,7 @@ fn next(ctx: *anyopaque, cursor: *abi.Cursor, entity: *u64) callconv(.c) abi.Sta
             }
 
             const matches = for (ids) |id| {
-                if (!arch.has(@enumFromInt(id))) {
+                if (!arch.has(@fromBackingInt(@intCast(id)))) {
                     break false;
                 }
             } else true;
@@ -115,11 +115,11 @@ fn next(ctx: *anyopaque, cursor: *abi.Cursor, entity: *u64) callconv(.c) abi.Sta
             for (ids, cursor.columns[0..ids.len], cursor.ticks[0..ids.len]) |id, *column, *tick| {
                 column.* = no_column;
                 for (arch.columns.items, 0..) |c, i| {
-                    if (c.id == @as(zcs.ComponentId, @enumFromInt(id))) {
+                    if (c.id == @as(zcs.ComponentId, @fromBackingInt(@intCast(id)))) {
                         column.* = @intCast(i);
                     }
                 }
-                tick.* = @intCast(arch.tickIndex(@enumFromInt(id)).?);
+                tick.* = @intCast(arch.tickIndex(@fromBackingInt(@intCast(id))).?);
             }
         }
         while (cursor.chunk < arch.chunks.items.len) : ({
@@ -157,10 +157,10 @@ fn current(self: *Self, cursor: *const abi.Cursor, term: u32) ?Cell {
     // The cursor is game-owned, so check its cached slots still name this term.
     const id = cursor.ids[term];
     const tick = cursor.ticks[term];
-    if (tick >= arch.change_ids.items.len or @intFromEnum(arch.change_ids.items[tick]) != id) return null;
+    if (tick >= arch.change_ids.items.len or @backingInt(arch.change_ids.items[tick]) != id) return null;
     const column = cursor.columns[term];
     const bytes: []u8 = if (column == no_column) &.{} else blk: {
-        if (column >= arch.columns.items.len or @intFromEnum(arch.columns.items[column].id) != id) return null;
+        if (column >= arch.columns.items.len or @backingInt(arch.columns.items[column].id) != id) return null;
         break :blk zcs.Archetype.cell(chunk, @intCast(row), arch.columns.items[column]);
     };
     return .{ .id = id, .bytes = bytes, .arch = arch, .chunk = cursor.chunk, .tick = tick };

@@ -2,9 +2,13 @@ const std = @import("std");
 
 pub const addProjectCookStep = @import("fusion_sdk").addProjectCookStep;
 
+const Translator = @import("translate_c").Translator;
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+
+    const translate_c = b.dependency("translate_c", .{});
 
     const sdk_dep = b.dependency("fusion_sdk", .{ .target = target, .optimize = optimize });
 
@@ -32,6 +36,35 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const headers = b.addWriteFiles();
+    const glfw_c: Translator = .init(translate_c, .{
+        .name = "glfw",
+        .c_source_file = headers.add("glfw.h", "#include <GLFW/glfw3.h>\n"),
+        .target = target,
+        .optimize = optimize,
+    });
+    glfw_c.addIncludePath(glfw_dep.path("glfw/include"));
+    glfw_c.defineCMacro("GLFW_INCLUDE_NONE", null);
+
+    const glad_c: Translator = .init(translate_c, .{
+        .name = "glad",
+        .c_source_file = headers.add("glad.h", "#include <glad/glad.h>\n"),
+        .target = target,
+        .optimize = optimize,
+    });
+    glad_c.addIncludePath(glad_dep.path("glad/include"));
+
+    const macos_c: ?*std.Build.Module = if (target.result.os.tag == .macos) blk: {
+        const objc_c: Translator = .init(translate_c, .{
+            .name = "macos_objc",
+            .c_source_file = headers.add("macos_objc.h", "#include <objc/message.h>\n#include <objc/runtime.h>\n"),
+            .target = target,
+            .optimize = optimize,
+            .link_system_libs = &.{.{ .name = "objc" }},
+        });
+        break :blk objc_c.mod;
+    } else null;
+
     const mod = b.addModule("fusion_runtime", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
@@ -42,6 +75,9 @@ pub fn build(b: *std.Build) void {
         .sdk = sdk_dep.module("fusion_sdk"),
         .glfw = glfw_dep.artifact("glfw"),
         .glad = glad_dep.artifact("glad"),
+        .glfw_c = glfw_c.mod,
+        .glad_c = glad_c.mod,
+        .macos_c = macos_c,
         .zimp = zimp_mod,
         .zob = zob_dep.module("zob"),
         .zcs = zcs_dep.module("zcs"),
@@ -73,7 +109,7 @@ pub fn build(b: *std.Build) void {
 
     if (b.option([]const u8, "game-library", "Path to a separately built sandbox-game library")) |path| {
         const options = b.addOptions();
-        options.addOption([]const u8, "library_path", b.pathFromRoot(path));
+        options.addOption([]const u8, "library_path", b.pathResolve(&.{ b.root.root_dir.path orelse ".", b.root.sub_path, path }));
         const integration = b.createModule(.{
             .root_source_file = b.path("tests/game_library.zig"),
             .target = target,
@@ -96,6 +132,9 @@ const Deps = struct {
     sdk: *std.Build.Module,
     glfw: *std.Build.Step.Compile,
     glad: *std.Build.Step.Compile,
+    glfw_c: *std.Build.Module,
+    glad_c: *std.Build.Module,
+    macos_c: ?*std.Build.Module,
     zimp: *std.Build.Module,
     zob: *std.Build.Module,
     zcs: *std.Build.Module,
@@ -104,6 +143,9 @@ const Deps = struct {
         mod.addImport("fusion_sdk", deps.sdk);
         mod.linkLibrary(deps.glfw);
         mod.linkLibrary(deps.glad);
+        mod.addImport("glfw", deps.glfw_c);
+        mod.addImport("glad", deps.glad_c);
+        if (deps.macos_c) |macos_c| mod.addImport("macos_objc", macos_c);
         mod.addImport("zimp", deps.zimp);
         mod.addImport("zob", deps.zob);
         mod.addImport("zcs", deps.zcs);

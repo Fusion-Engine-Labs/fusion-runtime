@@ -8,10 +8,7 @@ const log = @import("log.zig");
 const c = @import("../c.zig");
 const glfw = c.glfw;
 
-const macos = if (builtin.os.tag == .macos) @cImport({
-    @cInclude("objc/message.h");
-    @cInclude("objc/runtime.h");
-}) else struct {};
+const macos = if (builtin.os.tag == .macos) @import("macos_objc") else struct {};
 
 extern fn glfwGetCocoaWindow(window: c.Window) ?*anyopaque;
 extern fn glfwGetX11Window(window: c.Window) c_ulong;

@@ -10,19 +10,19 @@ pub const Position = struct {
 };
 
 pub const key_count = @import("fusion_sdk").abi.key_count;
-pub const mouse_button_count = @intFromEnum(event.MouseButton.Button7) + 1;
+pub const mouse_button_count = @backingInt(event.MouseButton.Button7) + 1;
 pub const text_capacity = 64;
 
-key_down: [key_count]bool = [_]bool{false} ** key_count,
-key_pressed: [key_count]bool = [_]bool{false} ** key_count,
-key_released: [key_count]bool = [_]bool{false} ** key_count,
-mouse_button_down: [mouse_button_count]bool = [_]bool{false} ** mouse_button_count,
-mouse_button_pressed: [mouse_button_count]bool = [_]bool{false} ** mouse_button_count,
-mouse_button_released: [mouse_button_count]bool = [_]bool{false} ** mouse_button_count,
+key_down: [key_count]bool = @splat(false),
+key_pressed: [key_count]bool = @splat(false),
+key_released: [key_count]bool = @splat(false),
+mouse_button_down: [mouse_button_count]bool = @splat(false),
+mouse_button_pressed: [mouse_button_count]bool = @splat(false),
+mouse_button_released: [mouse_button_count]bool = @splat(false),
 mouse_pos: Position = .{},
 mouse_delta: Position = .{},
 mouse_scroll: Position = .{},
-text_codepoints: [text_capacity]u32 = [_]u32{0} ** text_capacity,
+text_codepoints: [text_capacity]u32 = @splat(0),
 text_len: usize = 0,
 focused: bool = true,
 has_mouse_position: bool = false,
@@ -93,27 +93,27 @@ pub fn applyEvent(self: *Input, ev: event.ZEvent) void {
 }
 
 pub fn isKeyDown(self: *const Input, key: event.Key) bool {
-    return self.key_down[@intFromEnum(key)];
+    return self.key_down[@backingInt(key)];
 }
 
 pub fn wasKeyPressed(self: *const Input, key: event.Key) bool {
-    return self.key_pressed[@intFromEnum(key)];
+    return self.key_pressed[@backingInt(key)];
 }
 
 pub fn wasKeyReleased(self: *const Input, key: event.Key) bool {
-    return self.key_released[@intFromEnum(key)];
+    return self.key_released[@backingInt(key)];
 }
 
 pub fn isMouseButtonDown(self: *const Input, button: event.MouseButton) bool {
-    return self.mouse_button_down[@intFromEnum(button)];
+    return self.mouse_button_down[@backingInt(button)];
 }
 
 pub fn wasMouseButtonPressed(self: *const Input, button: event.MouseButton) bool {
-    return self.mouse_button_pressed[@intFromEnum(button)];
+    return self.mouse_button_pressed[@backingInt(button)];
 }
 
 pub fn wasMouseButtonReleased(self: *const Input, button: event.MouseButton) bool {
-    return self.mouse_button_released[@intFromEnum(button)];
+    return self.mouse_button_released[@backingInt(button)];
 }
 
 pub fn textInput(self: *const Input) []const u32 {
@@ -135,19 +135,19 @@ fn setUp(down: []bool, released: []bool, index: usize) void {
 }
 
 fn setKeyDown(self: *Input, key: event.Key) void {
-    setDown(&self.key_down, &self.key_pressed, @intFromEnum(key));
+    setDown(&self.key_down, &self.key_pressed, @backingInt(key));
 }
 
 fn setKeyUp(self: *Input, key: event.Key) void {
-    setUp(&self.key_down, &self.key_released, @intFromEnum(key));
+    setUp(&self.key_down, &self.key_released, @backingInt(key));
 }
 
 fn setMouseButtonDown(self: *Input, button: event.MouseButton) void {
-    setDown(&self.mouse_button_down, &self.mouse_button_pressed, @intFromEnum(button));
+    setDown(&self.mouse_button_down, &self.mouse_button_pressed, @backingInt(button));
 }
 
 fn setMouseButtonUp(self: *Input, button: event.MouseButton) void {
-    setUp(&self.mouse_button_down, &self.mouse_button_released, @intFromEnum(button));
+    setUp(&self.mouse_button_down, &self.mouse_button_released, @backingInt(button));
 }
 
 fn setMousePosition(self: *Input, position: Position) void {

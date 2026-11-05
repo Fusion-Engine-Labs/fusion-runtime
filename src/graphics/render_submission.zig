@@ -21,7 +21,7 @@ pub const DrawItem = struct {
 
     pub fn lessThan(_: void, a: DrawItem, b: DrawItem) bool {
         if (a.phase != b.phase) {
-            return @intFromEnum(a.phase) < @intFromEnum(b.phase);
+            return @backingInt(a.phase) < @backingInt(b.phase);
         }
 
         return switch (a.phase) {

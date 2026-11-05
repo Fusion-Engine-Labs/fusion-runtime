@@ -1,9 +1,3 @@
-pub const glfw = @cImport({
-    @cInclude("GLFW/glfw3.h");
-});
-
-pub const glad = @cImport({
-    @cInclude("glad/glad.h");
-});
-
+pub const glfw = @import("glfw");
+pub const glad = @import("glad");
 pub const Window = ?*glfw.GLFWwindow;

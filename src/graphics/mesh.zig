@@ -183,7 +183,7 @@ fn addStream(
     buffer_owned = false;
     try streams.append(
         allocator,
-        .{ .buffer = buffer, .attribute = .{ .location = @intFromEnum(location), .data_type = data_type, .normalized = normalized } },
+        .{ .buffer = buffer, .attribute = .{ .location = @backingInt(location), .data_type = data_type, .normalized = normalized } },
     );
 }
 

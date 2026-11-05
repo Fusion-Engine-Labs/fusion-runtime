@@ -53,7 +53,7 @@ pub fn mouseButtonCallback(window: c.Window, btn: c_int, action: c_int, mods: c_
 
     const win = getWindowFromGLFW(window) orelse return;
 
-    const button: MouseButton = @enumFromInt(@as(u8, @intCast(btn)));
+    const button: MouseButton = @fromBackingInt(@intCast(btn));
     const ev: ZEvent = if (isPress)
         ZEvent{ .MousePressed = button }
     else
@@ -150,21 +150,21 @@ test "Key.fromGLFW maps known and unknown key codes" {
 }
 
 test "Key values are the GLFW key codes" {
-    try std.testing.expectEqual(@intFromEnum(Key.Space), glfw.GLFW_KEY_SPACE);
-    try std.testing.expectEqual(@intFromEnum(Key.Apostrophe), glfw.GLFW_KEY_APOSTROPHE);
-    try std.testing.expectEqual(@intFromEnum(Key.Num0), glfw.GLFW_KEY_0);
-    try std.testing.expectEqual(@intFromEnum(Key.A), glfw.GLFW_KEY_A);
-    try std.testing.expectEqual(@intFromEnum(Key.GraveAccent), glfw.GLFW_KEY_GRAVE_ACCENT);
-    try std.testing.expectEqual(@intFromEnum(Key.Escape), glfw.GLFW_KEY_ESCAPE);
-    try std.testing.expectEqual(@intFromEnum(Key.F1), glfw.GLFW_KEY_F1);
-    try std.testing.expectEqual(@intFromEnum(Key.F25), glfw.GLFW_KEY_F25);
-    try std.testing.expectEqual(@intFromEnum(Key.Kp0), glfw.GLFW_KEY_KP_0);
-    try std.testing.expectEqual(@intFromEnum(Key.KpEqual), glfw.GLFW_KEY_KP_EQUAL);
-    try std.testing.expectEqual(@intFromEnum(Key.LeftShift), glfw.GLFW_KEY_LEFT_SHIFT);
-    try std.testing.expectEqual(@intFromEnum(Key.Menu), glfw.GLFW_KEY_MENU);
+    try std.testing.expectEqual(@backingInt(Key.Space), glfw.GLFW_KEY_SPACE);
+    try std.testing.expectEqual(@backingInt(Key.Apostrophe), glfw.GLFW_KEY_APOSTROPHE);
+    try std.testing.expectEqual(@backingInt(Key.Num0), glfw.GLFW_KEY_0);
+    try std.testing.expectEqual(@backingInt(Key.A), glfw.GLFW_KEY_A);
+    try std.testing.expectEqual(@backingInt(Key.GraveAccent), glfw.GLFW_KEY_GRAVE_ACCENT);
+    try std.testing.expectEqual(@backingInt(Key.Escape), glfw.GLFW_KEY_ESCAPE);
+    try std.testing.expectEqual(@backingInt(Key.F1), glfw.GLFW_KEY_F1);
+    try std.testing.expectEqual(@backingInt(Key.F25), glfw.GLFW_KEY_F25);
+    try std.testing.expectEqual(@backingInt(Key.Kp0), glfw.GLFW_KEY_KP_0);
+    try std.testing.expectEqual(@backingInt(Key.KpEqual), glfw.GLFW_KEY_KP_EQUAL);
+    try std.testing.expectEqual(@backingInt(Key.LeftShift), glfw.GLFW_KEY_LEFT_SHIFT);
+    try std.testing.expectEqual(@backingInt(Key.Menu), glfw.GLFW_KEY_MENU);
 
-    inline for (@typeInfo(Key).@"enum".fields) |f| {
-        const key: Key = @enumFromInt(f.value);
-        try std.testing.expectEqual(key, Key.fromGLFW(f.value));
+    inline for (@typeInfo(Key).@"enum".field_values) |value| {
+        const key: Key = @fromBackingInt(@intCast(value));
+        try std.testing.expectEqual(key, Key.fromGLFW(value));
     }
 }

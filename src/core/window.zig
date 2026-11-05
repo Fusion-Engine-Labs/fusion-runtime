@@ -118,7 +118,7 @@ pub fn init(allocator: std.mem.Allocator, params: WindowParams) WindowError!*Win
     }
     graphics_context.configure(params.backend, params.msaa_samples);
 
-    const title = allocator.dupeZ(u8, params.title) catch |err| {
+    const title = allocator.dupeSentinel(u8, params.title, '\x00') catch |err| {
         log.err("failed to allocate window title: {}", .{err});
         return WindowError.MemoryError;
     };

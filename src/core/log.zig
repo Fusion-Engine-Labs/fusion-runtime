@@ -22,7 +22,7 @@ pub fn info(comptime format: []const u8, args: anytype) void {
 }
 
 pub fn debug(comptime format: []const u8, args: anytype) void {
-    if (comptime builtin.mode == .ReleaseFast) {
+    if (comptime builtin.mode == .fast) {
         return;
     }
     logger.debug(format, args);

@@ -93,8 +93,11 @@ pub fn build(b: *std.Build) void {
     });
     deps.wire(lib_check);
 
-    const check_compile = b.addObject(.{
+    // A static library rather than an object: COFF can't merge the linked glfw/glad
+    // libraries and zimp's C sources into a single relocatable object on Windows.
+    const check_compile = b.addLibrary(.{
         .name = "fusion_runtime_check",
+        .linkage = .static,
         .root_module = lib_check,
     });
 

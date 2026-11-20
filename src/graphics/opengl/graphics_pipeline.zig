@@ -28,6 +28,8 @@ const GraphicsPipeline = @This();
 id: u32,
 allocator: std.mem.Allocator,
 uniforms: Map,
+/// Link-time values of the non-sampler uniforms; see `rhi.UniformDefault`.
+defaults: []rhi.UniformDefault,
 fixed_state: @import("../render_state.zig").FixedState,
 
 pub fn init(allocator: std.mem.Allocator, desc: rhi.GraphicsPipelineDesc) GraphicsPipelineError!GraphicsPipeline {
@@ -64,10 +66,13 @@ pub fn init(allocator: std.mem.Allocator, desc: rhi.GraphicsPipelineDesc) Graphi
         return GraphicsPipelineError.ProgramLinkingFailed;
     }
 
+    var reflection = try reflectUniforms(program, allocator);
+    errdefer reflection.deinit(allocator);
     return .{
         .id = program,
         .allocator = allocator,
-        .uniforms = try getUniformLocations(program, allocator),
+        .uniforms = reflection.locations,
+        .defaults = reflection.defaults,
         .fixed_state = desc.fixed_state,
     };
 }
@@ -123,14 +128,26 @@ fn compileShader(comptime stage: enum { vertex, fragment }, parts: []const []con
 
 pub fn deinit(self: *GraphicsPipeline) void {
     self.uniforms.deinit(self.allocator);
+    self.allocator.free(self.defaults);
     gl.glDeleteProgram(self.id);
     self.id = 0;
 }
 
-/// Keys by name hash because cooked materials store only hashes. Two active
-/// uniforms with the same hash would make lookups ambiguous, so they fail the
-/// pipeline instead.
-fn getUniformLocations(program: u32, allocator: std.mem.Allocator) GraphicsPipelineError!Map {
+const Reflection = struct {
+    locations: Map,
+    defaults: []rhi.UniformDefault,
+
+    fn deinit(self: *Reflection, allocator: std.mem.Allocator) void {
+        self.locations.deinit(allocator);
+        allocator.free(self.defaults);
+    }
+};
+
+/// Keys locations by name hash because cooked materials store only hashes.
+/// Two active uniforms with the same hash would make lookups ambiguous, so
+/// they fail the pipeline instead. Also records each non-sampler uniform's
+/// value as linked, so materials can reset params they do not set.
+fn reflectUniforms(program: u32, allocator: std.mem.Allocator) GraphicsPipelineError!Reflection {
     var count: i32 = 0;
     gl.glGetProgramiv(program, gl.GL_ACTIVE_UNIFORMS, &count);
 
@@ -138,6 +155,8 @@ fn getUniformLocations(program: u32, allocator: std.mem.Allocator) GraphicsPipel
     var map: Map = .empty;
     errdefer map.deinit(allocator);
     try map.ensureTotalCapacity(allocator, uniform_count);
+    var defaults: std.ArrayList(rhi.UniformDefault) = .empty;
+    errdefer defaults.deinit(allocator);
 
     // Full names: a truncated name would hash differently, or make two
     // uniforms look like a collision.
@@ -156,15 +175,43 @@ fn getUniformLocations(program: u32, allocator: std.mem.Allocator) GraphicsPipel
         const location = gl.glGetUniformLocation(program, @ptrCast(name_buf.ptr));
         // Built-ins and block members have no location.
         if (location < 0) continue;
-        const entry = map.getOrPutAssumeCapacity(zimp.nameHash(name_slice));
+        const name_hash = zimp.nameHash(name_slice);
+        const entry = map.getOrPutAssumeCapacity(name_hash);
         if (entry.found_existing) {
             log.err("graphics pipeline uniform '{s}' has the same name hash as another uniform", .{name_slice});
             return GraphicsPipelineError.UniformNameHashCollision;
         }
         entry.value_ptr.* = @intCast(location);
+
+        // Arrays and samplers are not material params.
+        if (size != 1) continue;
+        const value = linkedValue(program, location, ty) orelse continue;
+        try defaults.append(allocator, .{ .name_hash = name_hash, .location = .{ .slot = @intCast(location) }, .value = value });
     }
 
-    return map;
+    return .{ .locations = map, .defaults = try defaults.toOwnedSlice(allocator) };
+}
+
+/// The current value of a uniform of GL type `ty`, or null for types
+/// materials cannot set.
+fn linkedValue(program: u32, location: i32, ty: u32) ?rhi.UniformValue {
+    var floats: [16]f32 = @splat(0);
+    var ints: [1]i32 = .{0};
+    switch (ty) {
+        gl.GL_FLOAT, gl.GL_FLOAT_VEC2, gl.GL_FLOAT_VEC3, gl.GL_FLOAT_VEC4, gl.GL_FLOAT_MAT3, gl.GL_FLOAT_MAT4 => gl.glGetUniformfv(program, location, &floats),
+        gl.GL_INT, gl.GL_BOOL => gl.glGetUniformiv(program, location, &ints),
+        else => return null,
+    }
+    return switch (ty) {
+        gl.GL_FLOAT => .{ .float = floats[0] },
+        gl.GL_FLOAT_VEC2 => .{ .vec2 = floats[0..2].* },
+        gl.GL_FLOAT_VEC3 => .{ .vec3 = floats[0..3].* },
+        gl.GL_FLOAT_VEC4 => .{ .vec4 = floats[0..4].* },
+        gl.GL_FLOAT_MAT3 => .{ .mat3 = @bitCast(floats[0..9].*) },
+        gl.GL_FLOAT_MAT4 => .{ .mat4 = @bitCast(floats) },
+        gl.GL_INT, gl.GL_BOOL => .{ .int = ints[0] },
+        else => unreachable,
+    };
 }
 
 pub fn uniformLocation(self: *const GraphicsPipeline, name: []const u8) ?rhi.UniformLocation {

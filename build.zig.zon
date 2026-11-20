@@ -25,8 +25,8 @@
             .hash = "translate_c-2.0.1-Q_BUWmpOBwCIhy--up1q6cl3OlIQE86iJU8R-bZ01aPj",
         },
         .fusion_sdk = .{
-            .url = "git+https://github.com/Fusion-Engine-Labs/fusion-sdk.git#d6a7f56956e490dbc48308c76e953bf5e837f6ae",
-            .hash = "fusion_sdk-0.0.0-tQKBDmtrAQBO-A-sJGHVAGrrOf2oqRe4rNDfV0ENSOxo",
+            .url = "git+https://github.com/Fusion-Engine-Labs/fusion-sdk.git#cc535b2a1bca58e74bd5f88c70adde977e9d415f",
+            .hash = "fusion_sdk-0.0.0-tQKBDveFAQAZEIJtn-EaMBJteyVlOE2Bt7PeviHkJApT",
         },
     },
     .paths = .{

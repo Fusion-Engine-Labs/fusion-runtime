@@ -8,6 +8,7 @@ const Renderer = @import("../graphics/renderer.zig");
 const Project = @import("../project/project.zig");
 const Window = @import("window.zig");
 const Input = @import("input.zig");
+const CursorLock = @import("cursor_lock.zig");
 const event = @import("event.zig");
 const Game = @import("game.zig");
 const log = @import("log.zig");
@@ -19,6 +20,8 @@ pub fn Application(comptime game: Game) type {
         events: std.ArrayList(event.ZEvent) = .empty,
         runtime: *GameRuntime,
         window: *Window,
+        /// Whether the window's cursor is currently locked.
+        cursor_locked: bool = false,
 
         pub fn init(
             allocator: std.mem.Allocator,
@@ -55,6 +58,7 @@ pub fn Application(comptime game: Game) type {
                 self.beginFrame();
                 self.processQueuedEvents();
                 try self.update();
+                self.updateCursorLock(self.window.isFocused());
                 try self.renderScene(null);
                 self.present();
             }
@@ -86,6 +90,26 @@ pub fn Application(comptime game: Game) type {
 
         pub fn update(self: *@This()) !void {
             try self.runtime.update();
+        }
+
+        /// Applies the game's cursor lock request to the window, after
+        /// `update`. `allow_lock` false refuses or ends any lock, for when the
+        /// game should not hold the mouse (unfocused, paused, not playing).
+        pub fn updateCursorLock(self: *@This(), allow_lock: bool) void {
+            const cursor = self.runtime.activeSession().world.getResource(CursorLock);
+            const locked = cursor.resolve(allow_lock);
+            if (locked == self.cursor_locked) return;
+
+            self.window.setCursorLocked(locked);
+            self.cursor_locked = locked;
+            // Locking and unlocking warp the cursor; that is not movement.
+            self.input().resetMousePosition();
+        }
+
+        /// Ends the lock as if the game had asked, e.g. when the player
+        /// presses Escape. Applied by the next `updateCursorLock`.
+        pub fn releaseCursorLock(self: *@This()) void {
+            self.runtime.activeSession().world.getResource(CursorLock).requested = false;
         }
 
         pub fn setSimulationPaused(self: *@This(), paused: bool) void {

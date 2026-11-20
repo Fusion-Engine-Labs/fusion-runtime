@@ -18,6 +18,7 @@ pub const Key = @import("core/event.zig").Key;
 pub const Window = @import("core/window.zig");
 pub const Mesh = @import("graphics/mesh.zig");
 pub const Input = @import("core/input.zig");
+pub const CursorLock = @import("core/cursor_lock.zig");
 pub const Time = @import("core/time.zig");
 pub const SimulationTime = Time.SimulationClock;
 
@@ -98,6 +99,7 @@ test {
     _ = @import("core/math.zig");
     _ = @import("core/event.zig");
     _ = @import("core/input.zig");
+    _ = @import("core/cursor_lock.zig");
     _ = @import("core/session.zig");
     _ = @import("scene/camera.zig");
     _ = @import("scene/component_codec.zig");

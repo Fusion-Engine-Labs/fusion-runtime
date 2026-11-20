@@ -167,6 +167,13 @@ fn appendText(self: *Input, codepoint: u32) void {
     self.text_len += 1;
 }
 
+/// Treats the next cursor position as a fresh start instead of movement,
+/// for when the cursor jumps without the user moving it (locking or
+/// unlocking it warps it).
+pub fn resetMousePosition(self: *Input) void {
+    self.has_mouse_position = false;
+}
+
 pub fn setFocused(self: *Input, focused: bool) void {
     if (self.focused == focused) {
         return;

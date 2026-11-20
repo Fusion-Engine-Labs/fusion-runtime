@@ -13,6 +13,7 @@ const SchemaRegistry = @import("../scene/schema_registry.zig");
 const WorldInstance = @import("../ecs/world.zig");
 const game_module = @import("game_module.zig");
 const Input = @import("input.zig");
+const CursorLock = @import("cursor_lock.zig");
 const Game = @import("game.zig");
 const Time = @import("time.zig");
 const log = @import("log.zig");
@@ -52,6 +53,7 @@ pub fn create(allocator: std.mem.Allocator, comptime game: Game, options: Option
     errdefer self.world.deinit();
 
     try self.world.setResource(Input, .{});
+    try self.world.setResource(CursorLock, .{});
     try self.world.setResource(Time.SimulationClock, .{});
 
     if (options.library) |library| {

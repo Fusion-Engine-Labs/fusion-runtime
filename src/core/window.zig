@@ -249,6 +249,15 @@ pub fn setCursor(self: *Window, cursor: CursorKind) void {
     glfw.glfwSetCursor(self.window, self.cursors.get(cursor));
 }
 
+/// Hides the cursor and confines it to the window, reporting unbounded
+/// movement (unaccelerated where the platform supports it), or restores it.
+pub fn setCursorLocked(self: *Window, locked: bool) void {
+    glfw.glfwSetInputMode(self.window, glfw.GLFW_CURSOR, if (locked) glfw.GLFW_CURSOR_DISABLED else glfw.GLFW_CURSOR_NORMAL);
+    if (glfw.glfwRawMouseMotionSupported() == glfw.GLFW_TRUE) {
+        glfw.glfwSetInputMode(self.window, glfw.GLFW_RAW_MOUSE_MOTION, @intFromBool(locked));
+    }
+}
+
 pub fn getClipboard(self: *const Window) []const u8 {
     const ptr = glfw.glfwGetClipboardString(self.window) orelse return "";
     return std.mem.span(ptr);

@@ -106,6 +106,9 @@ pub const VTable = struct {
     /// Looks a uniform up by `zimp.nameHash` of its name.
     graphicsPipelineUniformLocation: *const fn (*anyopaque, GraphicsPipeline, u64) ?GraphicsPipeline.UniformLocation,
     setGraphicsPipelineUniform: *const fn (*anyopaque, GraphicsPipeline, GraphicsPipeline.UniformLocation, GraphicsPipeline.UniformValue) void,
+    /// Link-time values of the pipeline's non-sampler uniforms. Valid until the
+    /// pipeline is destroyed.
+    graphicsPipelineUniformDefaults: *const fn (*anyopaque, GraphicsPipeline) []const GraphicsPipeline.UniformDefault,
 
     beginGpuTimer: *const fn (*anyopaque) void,
     endGpuTimer: *const fn (*anyopaque) void,
@@ -201,6 +204,9 @@ pub fn graphicsPipelineUniformLocationByHash(self: *Device, value: GraphicsPipel
 }
 pub fn setGraphicsPipelineUniform(self: *Device, pipeline: GraphicsPipeline, location: GraphicsPipeline.UniformLocation, value: GraphicsPipeline.UniformValue) void {
     self.vtable.setGraphicsPipelineUniform(self.impl, pipeline, location, value);
+}
+pub fn graphicsPipelineUniformDefaults(self: *Device, pipeline: GraphicsPipeline) []const GraphicsPipeline.UniformDefault {
+    return self.vtable.graphicsPipelineUniformDefaults(self.impl, pipeline);
 }
 pub fn setGraphicsPipelineUniformByName(self: *Device, pipeline: GraphicsPipeline, name: []const u8, value: GraphicsPipeline.UniformValue) void {
     const location = self.graphicsPipelineUniformLocation(pipeline, name) orelse return;

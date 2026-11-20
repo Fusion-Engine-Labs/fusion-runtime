@@ -207,8 +207,9 @@ fn renderQueue(self: *Renderer, view: math.Mat4, projection: math.Mat4, camera_p
             bound_pipeline = pipeline.sort_key;
 
             // Lookups are by name hash. zimp's material cooker checks these
-            // names for hash collisions (`runtime_uniform_names`), so keep the
-            // two lists in sync.
+            // names for hash collisions (`runtime_uniform_names`), and
+            // materials leave them out of their resets (`renderer_uniforms`
+            // in material.zig), so keep the three lists in sync.
             model_location = self.device.graphicsPipelineUniformLocation(pipeline, "u_model");
             normal_matrix_location = self.device.graphicsPipelineUniformLocation(pipeline, "u_normal_matrix");
             uv_min_location = self.device.graphicsPipelineUniformLocation(pipeline, "u_uv0_min");

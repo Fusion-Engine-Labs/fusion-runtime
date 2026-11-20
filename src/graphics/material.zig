@@ -109,6 +109,8 @@ pub fn init(
         }
     }
 
+    try appendUnsetDefaults(allocator, &uniforms, device.graphicsPipelineUniformDefaults(pipeline));
+
     return .{
         .pipeline = pipeline,
         .device = device,
@@ -118,6 +120,41 @@ pub fn init(
         .uniform_bindings = try uniforms.toOwnedSlice(allocator),
         .allocator = allocator,
     };
+}
+
+/// Uniforms the renderer sets itself for every pipeline or draw. Keep in
+/// sync with `Renderer.renderQueue`.
+const renderer_uniforms = [_]u64{
+    zimp.nameHash("u_model"),
+    zimp.nameHash("u_normal_matrix"),
+    zimp.nameHash("u_view"),
+    zimp.nameHash("u_projection"),
+    zimp.nameHash("u_camera_pos"),
+    zimp.nameHash("u_uv0_min"),
+    zimp.nameHash("u_uv0_scale"),
+    zimp.nameHash("u_pos_min"),
+    zimp.nameHash("u_pos_scale"),
+};
+
+/// Uniforms are per-program state, so a param this material leaves out would
+/// keep whatever the previous material drawn with the same shader set, and
+/// the material would look different depending on draw order. Adds a binding
+/// that restores the shader's own initial value for each such param.
+fn appendUnsetDefaults(
+    allocator: std.mem.Allocator,
+    uniforms: *std.ArrayList(UniformBinding),
+    defaults: []const GraphicsPipeline.UniformDefault,
+) !void {
+    const material_count = uniforms.items.len;
+    next: for (defaults) |default| {
+        for (renderer_uniforms) |hash| {
+            if (hash == default.name_hash) continue :next;
+        }
+        for (uniforms.items[0..material_count]) |binding| {
+            if (binding.location.slot == default.location.slot) continue :next;
+        }
+        try uniforms.append(allocator, .{ .location = default.location, .value = default.value });
+    }
 }
 
 const normal_map_hash = zimp.nameHash("u_normal_map");
@@ -140,4 +177,34 @@ pub fn deinit(self: *Material) void {
     self.allocator.free(self.uniform_bindings);
     self.allocator.free(self.texture_bindings);
     self.cooked.deinit(self.allocator);
+}
+
+const testing = std.testing;
+
+fn testDefault(name: []const u8, slot: u32, value: GraphicsPipeline.UniformValue) GraphicsPipeline.UniformDefault {
+    return .{ .name_hash = zimp.nameHash(name), .location = .{ .slot = slot }, .value = value };
+}
+
+test "params a material leaves out are reset to the shader's initial values" {
+    var uniforms: std.ArrayList(UniformBinding) = .empty;
+    defer uniforms.deinit(testing.allocator);
+    // The material sets only its base color (slot 3).
+    try uniforms.append(testing.allocator, .{ .location = .{ .slot = 3 }, .value = .{ .vec4 = .{ 1, 0, 0, 1 } } });
+
+    const defaults = [_]GraphicsPipeline.UniformDefault{
+        testDefault("u_base_color", 3, .{ .vec4 = .{ 0, 0, 0, 0 } }),
+        testDefault("u_emissive", 5, .{ .vec3 = .{ 0, 0, 0 } }),
+        testDefault("u_roughness", 6, .{ .float = 0 }),
+        testDefault("u_model", 0, .{ .mat4 = @splat(@splat(0)) }),
+        testDefault("u_camera_pos", 9, .{ .vec3 = .{ 0, 0, 0 } }),
+    };
+    try appendUnsetDefaults(testing.allocator, &uniforms, &defaults);
+
+    // The material's own value stays, unset params get the shader defaults,
+    // and the renderer's per-draw uniforms are left alone.
+    try testing.expectEqual(@as(usize, 3), uniforms.items.len);
+    try testing.expectEqual([4]f32{ 1, 0, 0, 1 }, uniforms.items[0].value.vec4);
+    try testing.expectEqual(@as(u32, 5), uniforms.items[1].location.slot);
+    try testing.expectEqual([3]f32{ 0, 0, 0 }, uniforms.items[1].value.vec3);
+    try testing.expectEqual(@as(u32, 6), uniforms.items[2].location.slot);
 }

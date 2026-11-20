@@ -7,6 +7,7 @@ const SchemaRegistry = @import("../scene/schema_registry.zig");
 const World = @import("../ecs/world.zig");
 const Host = @import("game_host.zig");
 const Input = @import("input.zig");
+const CursorLock = @import("cursor_lock.zig");
 
 pub const GameModule = sdk.abi.Game;
 pub const GetGame = sdk.abi.GetGame;
@@ -20,6 +21,7 @@ pub const Binding = struct {
 /// Builds the game's view of this fixed step from the world's input and clock.
 fn frameFor(world: *zcs.World) sdk.Frame {
     var frame: sdk.Frame = .{ .seconds = world.getResource(zcs.DeltaTime).seconds };
+    if (world.getResourceOrNull(CursorLock)) |cursor| frame.cursor_locked = cursor.locked;
     const input = world.getResourceOrNull(Input) orelse return frame;
 
     for (&frame.keys, input.key_down) |*out, down| out.* = @intFromBool(down);
@@ -156,6 +158,7 @@ const TestGame = struct {
 
     fn onUpdate(world: sdk.World, frame: *const sdk.Frame) !void {
         seen = frame.*;
+        if (frame.wasMousePressed(.Right)) try world.setCursorLocked(!frame.cursor_locked);
         var query = try world.query(.{ .write = &.{TestCounter} });
         while (try query.each()) |row| {
             var counter = try row.read(TestCounter);
@@ -236,9 +239,18 @@ test "a bound game starts, updates through the schedule and stops in its world" 
     try testing.expectEqual([2]f32{ 0, -2 }, TestGame.seen.mouse_scroll);
     try testing.expectEqual(@as(usize, 1), countTransforms(world));
 
+    // The game asked for a cursor lock; the window owner grants it later and
+    // the game sees the result on its next frame.
+    const cursor = world.getResource(CursorLock);
+    try testing.expectEqual(@as(?bool, true), cursor.requested);
+    try testing.expect(!TestGame.seen.cursor_locked);
+    try testing.expect(cursor.resolve(true));
+    world.getResource(Input).beginFrame();
+
     // The second update despawns the counter entity once the system returns.
     try zcs.Schedule.run(world, &instance.command_buffer, .{ .delta_time = 0.5 }, schedule);
     try testing.expectEqual(@as(usize, 0), countTransforms(world));
+    try testing.expect(TestGame.seen.cursor_locked);
 
     // A failing update leaves nothing behind from that callback.
     TestGame.fail_update = true;

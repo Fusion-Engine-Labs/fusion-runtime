@@ -27,6 +27,15 @@ pub const UniformValue = union(enum) {
     mat4: [4][4]f32,
 };
 
+/// A uniform's value right after the program was linked: its initializer in
+/// the shader source, or zero.
+pub const UniformDefault = struct {
+    /// `zimp.nameHash` of the uniform name.
+    name_hash: u64,
+    location: UniformLocation,
+    value: UniformValue,
+};
+
 const GraphicsPipeline = @This();
 
 handle: ResourceHandle,

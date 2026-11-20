@@ -6,6 +6,7 @@ const abi = sdk.abi;
 
 const DynamicComponent = @import("../scene/dynamic_component.zig");
 const ComponentTypeId = @import("zimp").id.types.ComponentTypeId;
+const CursorLock = @import("cursor_lock.zig");
 const SchemaRegistry = @import("../scene/schema_registry.zig");
 const log = @import("log.zig");
 
@@ -55,6 +56,7 @@ pub fn api(self: *Self) abi.Host {
         .get = get,
         .set = set,
         .log = logMessage,
+        .set_cursor_locked = setCursorLocked,
     };
 }
 
@@ -68,6 +70,20 @@ fn toEntity(entity: abi.Entity) zcs.EntityID {
 
 fn toComponent(id: u32) zcs.ComponentId {
     return @fromBackingInt(id);
+}
+
+/// Records the request for the window owner; see `CursorLock`.
+fn setCursorLocked(ctx: *anyopaque, locked: bool) callconv(.c) abi.Status {
+    const self = from(ctx);
+    if (self.commands == null) {
+        return .invalid_argument;
+    }
+    if (self.world.getResourceOrNull(CursorLock)) |cursor| {
+        cursor.requested = locked;
+        return .ok;
+    }
+    self.world.setResource(CursorLock, .{ .requested = locked }) catch return .failed;
+    return .ok;
 }
 
 fn register(ctx: *anyopaque, json: abi.Bytes) callconv(.c) abi.Status {

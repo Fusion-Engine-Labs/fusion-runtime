@@ -70,6 +70,7 @@ const vtable = rhi_device.VTable{
     .bindGraphicsPipeline = bindGraphicsPipeline,
     .graphicsPipelineUniformLocation = graphicsPipelineUniformLocation,
     .setGraphicsPipelineUniform = setGraphicsPipelineUniform,
+    .graphicsPipelineUniformDefaults = graphicsPipelineUniformDefaults,
 };
 
 pub fn init(allocator: std.mem.Allocator) !rhi_device {
@@ -306,6 +307,11 @@ fn setGraphicsPipelineUniform(impl: *anyopaque, pipeline: RhiGraphicsPipeline, l
     const self: *OpenGLDevice = @ptrCast(@alignCast(impl));
     self.resolvePipeline(pipeline).setUniformFromLocation(location, value);
     _ = diagnostics.checkError("setting graphics pipeline uniform");
+}
+
+fn graphicsPipelineUniformDefaults(impl: *anyopaque, pipeline: RhiGraphicsPipeline) []const RhiGraphicsPipeline.UniformDefault {
+    const self: *OpenGLDevice = @ptrCast(@alignCast(impl));
+    return self.resolvePipeline(pipeline).defaults;
 }
 
 fn resolveFramebuffer(self: *OpenGLDevice, handle: RhiFramebuffer) *OpenGLFramebuffer {

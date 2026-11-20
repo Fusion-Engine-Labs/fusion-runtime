@@ -167,6 +167,13 @@ fn appendText(self: *Input, codepoint: u32) void {
     self.text_len += 1;
 }
 
+/// Records the cursor as being at `position` without counting that as
+/// movement, for when the app moved the cursor itself.
+pub fn anchorMousePosition(self: *Input, position: Position) void {
+    self.mouse_pos = position;
+    self.has_mouse_position = true;
+}
+
 /// Treats the next cursor position as a fresh start instead of movement,
 /// for when the cursor jumps without the user moving it (locking or
 /// unlocking it warps it).
@@ -189,6 +196,21 @@ pub fn setFocused(self: *Input, focused: bool) void {
 fn releaseAll(self: *Input) void {
     @memset(&self.key_down, false);
     @memset(&self.mouse_button_down, false);
+}
+
+test "an anchored cursor position is not movement but later positions are" {
+    var input: Input = .{};
+    input.applyEvent(.{ .MouseMove = .{ .x = 400, .y = 300 } });
+    input.applyEvent(.{ .MouseMove = .{ .x = 450, .y = 320 } });
+    input.beginFrame();
+
+    // The app pulled the cursor back to the middle itself.
+    input.anchorMousePosition(.{ .x = 200, .y = 150 });
+    try std.testing.expectEqual(@as(f32, 0), input.mouse_delta.x);
+
+    input.applyEvent(.{ .MouseMove = .{ .x = 210, .y = 145 } });
+    try std.testing.expectEqual(@as(f32, 10), input.mouse_delta.x);
+    try std.testing.expectEqual(@as(f32, -5), input.mouse_delta.y);
 }
 
 test "Input tracks press, hold, and release edges" {

@@ -55,7 +55,7 @@ pub fn Application(comptime game: Game) type {
             try self.start();
 
             while (self.window.shouldCloseWindow()) {
-                self.beginFrame();
+                _ = self.beginFrame(self.window.isFocused());
                 self.processQueuedEvents();
                 try self.update();
                 self.updateCursorLock(self.window.isFocused());
@@ -72,9 +72,14 @@ pub fn Application(comptime game: Game) type {
             };
         }
 
-        pub fn beginFrame(self: *@This()) []const event.ZEvent {
+        /// Polls window events and starts the frame. `focused` says whether
+        /// the app has the user's attention; an unfocused frame gets no input
+        /// edges or mouse movement. Pass `window.isFocused()` unless the
+        /// window is embedded in another one (as the editor's native menu
+        /// does), where only the host window knows.
+        pub fn beginFrame(self: *@This(), focused: bool) []const event.ZEvent {
             self.events.clearRetainingCapacity();
-            self.runtime.beginFrame(Window.GetTime(), self.window.isFocused());
+            self.runtime.beginFrame(Window.GetTime(), focused);
             Window.HandleInput();
 
             return self.events.items;
@@ -92,18 +97,28 @@ pub fn Application(comptime game: Game) type {
             try self.runtime.update();
         }
 
-        /// Applies the game's cursor lock request to the window, after
-        /// `update`. `allow_lock` false refuses or ends any lock, for when the
-        /// game should not hold the mouse (unfocused, paused, not playing).
+        /// Applies the game's cursor lock request to the window. Call it every
+        /// frame, after `update`: it also recenters a cursor locked by hand
+        /// (see `Window.setCursorLocked`). `allow_lock` false refuses or ends
+        /// any lock, for when the game should not hold the mouse (unfocused,
+        /// paused, not playing).
         pub fn updateCursorLock(self: *@This(), allow_lock: bool) void {
             const cursor = self.runtime.activeSession().world.getResource(CursorLock);
             const locked = cursor.resolve(allow_lock);
-            if (locked == self.cursor_locked) return;
+            if (locked != self.cursor_locked) {
+                self.window.setCursorLocked(locked);
+                self.cursor_locked = locked;
+                // Locking and unlocking warp the cursor; that is not movement.
+                self.input().resetMousePosition();
+            }
 
-            self.window.setCursorLocked(locked);
-            self.cursor_locked = locked;
-            // Locking and unlocking warp the cursor; that is not movement.
-            self.input().resetMousePosition();
+            // A cursor locked by hand goes back to the middle every frame,
+            // after this frame's movement has been used.
+            if (self.cursor_locked) {
+                if (self.window.recenterCursor()) |position| {
+                    self.input().anchorMousePosition(.{ .x = position[0], .y = position[1] });
+                }
+            }
         }
 
         /// Ends the lock as if the game had asked, e.g. when the player

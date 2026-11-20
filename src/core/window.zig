@@ -101,6 +101,11 @@ clipboard_buffer: std.ArrayList(u8) = .empty,
 event_fn: ?*const fn (*anyopaque, event.ZEvent) anyerror!void = null,
 event_ctx: *anyopaque = undefined,
 cursors: CursorSet = CursorSet.initFill(null),
+/// Set while the cursor is locked by hand rather than by GLFW; see
+/// `setCursorLocked`.
+manual_cursor_lock: bool = false,
+/// Where the cursor was when it was locked by hand, to put it back.
+cursor_restore: [2]f64 = .{ 0, 0 },
 
 pub fn init(allocator: std.mem.Allocator, params: WindowParams) WindowError!*Window {
     if (comptime builtin.os.tag == .linux) {
@@ -249,13 +254,51 @@ pub fn setCursor(self: *Window, cursor: CursorKind) void {
     glfw.glfwSetCursor(self.window, self.cursors.get(cursor));
 }
 
-/// Hides the cursor and confines it to the window, reporting unbounded
-/// movement (unaccelerated where the platform supports it), or restores it.
+/// Hides the cursor and keeps it in the window so movement is unbounded, or
+/// restores it.
+///
+/// GLFW applies its disabled-cursor mode only to a window it believes has
+/// input focus. A window embedded in another one never does (the editor's
+/// native menu embeds it in a GTK or Win32 host window), and there GLFW would
+/// hide the cursor but drop all its movement. Such a window is locked by hand
+/// instead: the cursor is hidden and `recenterCursor` pulls it back to the
+/// middle every frame.
 pub fn setCursorLocked(self: *Window, locked: bool) void {
+    if (locked) {
+        self.manual_cursor_lock = !self.isFocused();
+    }
+
+    if (self.manual_cursor_lock) {
+        if (locked) {
+            glfw.glfwGetCursorPos(self.window, &self.cursor_restore[0], &self.cursor_restore[1]);
+            glfw.glfwSetInputMode(self.window, glfw.GLFW_CURSOR, glfw.GLFW_CURSOR_HIDDEN);
+        } else {
+            glfw.glfwSetInputMode(self.window, glfw.GLFW_CURSOR, glfw.GLFW_CURSOR_NORMAL);
+            glfw.glfwSetCursorPos(self.window, self.cursor_restore[0], self.cursor_restore[1]);
+            self.manual_cursor_lock = false;
+        }
+        return;
+    }
+
     glfw.glfwSetInputMode(self.window, glfw.GLFW_CURSOR, if (locked) glfw.GLFW_CURSOR_DISABLED else glfw.GLFW_CURSOR_NORMAL);
     if (glfw.glfwRawMouseMotionSupported() == glfw.GLFW_TRUE) {
         glfw.glfwSetInputMode(self.window, glfw.GLFW_RAW_MOUSE_MOTION, @intFromBool(locked));
     }
+}
+
+/// For a cursor locked by hand, moves it back to the middle of the window
+/// and returns where it actually is now, which is where its next movement
+/// should be measured from. Reads the position back rather than assuming
+/// the move worked, so a refused move cannot turn into phantom movement.
+/// Null when GLFW holds the lock itself.
+pub fn recenterCursor(self: *Window) ?[2]f32 {
+    if (!self.manual_cursor_lock) return null;
+    const size = self.getWindowSize();
+    glfw.glfwSetCursorPos(self.window, @as(f64, @floatFromInt(size.width)) / 2, @as(f64, @floatFromInt(size.height)) / 2);
+    var x: f64 = 0;
+    var y: f64 = 0;
+    glfw.glfwGetCursorPos(self.window, &x, &y);
+    return .{ @floatCast(x), @floatCast(y) };
 }
 
 pub fn getClipboard(self: *const Window) []const u8 {

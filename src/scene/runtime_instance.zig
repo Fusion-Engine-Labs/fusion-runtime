@@ -52,18 +52,6 @@ pub fn deinit(self: *SceneRuntimeInstance, world: *zcs.World) void {
     self.runtime_to_scene.deinit();
 }
 
-pub fn reset(self: *SceneRuntimeInstance, world: *zcs.World) void {
-    var entities = self.scene_to_runtime.valueIterator();
-    while (entities.next()) |entity| {
-        if (world.isAlive(entity.*)) {
-            world.despawn(entity.*);
-        }
-    }
-
-    self.scene_to_runtime.clearRetainingCapacity();
-    self.runtime_to_scene.clearRetainingCapacity();
-}
-
 pub fn resolve(self: *const SceneRuntimeInstance, id: zimp.SceneEntityId) !zcs.EntityID {
     return self.scene_to_runtime.get(id) orelse return error.SceneEntityNotFound;
 }
@@ -84,11 +72,10 @@ pub fn spawnEntity(
     try self.runtime_to_scene.put(entity_id, entity.id);
 
     for (entity.components) |component_data| {
-        try self.addComponent(
-            context,
-            entity_id,
-            component_data,
-        );
+        self.addComponent(context, entity_id, component_data) catch |err| switch (err) {
+            error.UnknownComponent => log.warn("entity '{s}' has component {f} with no registered schema; skipping it", .{ entity.name, component_data.type_id }),
+            else => return err,
+        };
     }
     return entity_id;
 }
@@ -386,8 +373,11 @@ test "SceneRuntimeInstance instantiates an empty document" {
     try testing.expectError(error.SceneEntityNotFound, instance.resolve(test_source_id));
 }
 
-test "SceneRuntimeInstance reports an unregistered component type" {
-    var components = [_]zimp.scene.SceneComponent{.{ .type_id = unknown_component_id, .fields = &.{} }};
+test "SceneRuntimeInstance spawns an entity without its unregistered components" {
+    var components = [_]zimp.scene.SceneComponent{
+        .{ .type_id = unknown_component_id, .fields = &.{} },
+        .{ .type_id = transform_component_id, .fields = &.{} },
+    };
     var entities = [_]zimp.scene.SceneEntity{.{ .id = test_source_id, .name = "source", .components = &components, .prefab = .{} }};
     var scene = testDocument(&entities);
     defer scene.deinit();
@@ -395,13 +385,19 @@ test "SceneRuntimeInstance reports an unregistered component type" {
     defer world.deinit();
     var registry = SchemaRegistry.init(testing.allocator);
     defer registry.deinit();
+    try registry.register(TransformComponent);
     var instance = TestInstance.init(testing.allocator, test_scene_id);
     defer instance.deinit(&world);
 
     var assets: AssetManager = undefined;
-    try testing.expectError(error.UnknownComponent, instance.spawnEntities(testContext(&world, &registry, &assets), &scene));
+    const context = testContext(&world, &registry, &assets);
+    try instance.spawnEntities(context, &scene);
     const source = try instance.resolve(test_source_id);
     try testing.expect(world.isAlive(source));
+    try testing.expect(world.hasComponent(source, TransformComponent));
+
+    // Attaching one directly is still an error the editor can report.
+    try testing.expectError(error.UnknownComponent, instance.addComponent(context, source, components[0]));
 }
 
 test "SceneRuntimeInstance applies the document active camera" {

@@ -93,13 +93,19 @@ fn gatherDrawItems(self: *Renderer, world: *zcs.World, assets: *AssetManager, ca
         const transform = row.read(components.TransformComponent);
         const target = row.read(components.MeshRenderComponent);
 
+        // An unset mesh reference draws nothing.
+        if (target.mesh.isZero()) {
+            continue;
+        }
+
         const model = transform.modelMatrix();
         const mesh = assets.get(Mesh, target.mesh) orelse {
             switch (assets.availability(target.mesh)) {
                 .pending => {},
-                .missing, .failed => {
-                    log.err("mesh asset {f} is missing or failed to load", .{target.mesh});
+                .missing => _ = assets.registerId(Mesh, target.mesh) catch |err| {
+                    log.err("mesh asset {f} cannot be loaded: {s}", .{ target.mesh, @errorName(err) });
                 },
+                .failed => log.err("mesh asset {f} failed to load", .{target.mesh}),
                 .loaded => unreachable,
             }
             continue;

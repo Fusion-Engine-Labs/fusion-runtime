@@ -2,7 +2,7 @@
     .name = .fusion_runtime,
     .version = "0.0.0",
     .fingerprint = 0x0ab3bed29543f619,
-    .minimum_zig_version = "0.16.0",
+    .minimum_zig_version = "0.17.0",
     .dependencies = .{
         .glfw_zig = .{
             .url = "git+https://github.com/tiawl/glfw.zig#cc8704503a4375d3f6481aef4d63c827d9e27702",
@@ -20,13 +20,13 @@
             .url = "git+https://github.com/Fusion-Engine-Labs/zcs.git#066d91a23083101c0b2433cf8428e2f2d058d89e",
             .hash = "zcs-0.0.0-ypv9m0l1AQD4OPLF0DZrRR_bIciftG6OKEWdvbWvxhxM",
         },
-        .fusion_sdk = .{
-            .url = "git+https://github.com/Fusion-Engine-Labs/fusion-sdk.git#e7311847a91536d10c47c52f150f4cb56076fc01",
-            .hash = "fusion_sdk-0.0.0-tQKBDrgeAQCP_SN2sKcjLpTQwJKudIBE8Giw4PFasBeT",
-        },
         .translate_c = .{
             .url = "git+https://codeberg.org/ziglang/translate-c?ref=2.0.1#4f5ad374e50d1a98d3da79fa5d3bda9949103bf7",
             .hash = "translate_c-2.0.1-Q_BUWmpOBwCIhy--up1q6cl3OlIQE86iJU8R-bZ01aPj",
+        },
+        .fusion_sdk = .{
+            .url = "git+https://github.com/Fusion-Engine-Labs/fusion-sdk.git#d6a7f56956e490dbc48308c76e953bf5e837f6ae",
+            .hash = "fusion_sdk-0.0.0-tQKBDmtrAQBO-A-sJGHVAGrrOf2oqRe4rNDfV0ENSOxo",
         },
     },
     .paths = .{

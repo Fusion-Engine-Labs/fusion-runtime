@@ -182,14 +182,3 @@ test "setResource and getResource round-trip a value" {
     instance.getResource(Score).value = 7;
     try testing.expectEqual(@as(i32, 7), instance.getResource(Score).value);
 }
-
-test "resetActiveScene is a no-op without an active scene" {
-    var schemas = SchemaRegistry.init(testing.allocator);
-    defer schemas.deinit();
-
-    var instance: WorldInstance = undefined;
-    try instance.init(testing.allocator, &schemas, empty_game);
-    defer instance.deinit();
-
-    try instance.resetActiveScene();
-}

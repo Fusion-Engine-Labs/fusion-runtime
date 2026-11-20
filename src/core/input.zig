@@ -9,8 +9,8 @@ pub const Position = struct {
     y: f32 = 0,
 };
 
+pub const mouse_button_count = @import("fusion_sdk").abi.mouse_button_count;
 pub const key_count = @import("fusion_sdk").abi.key_count;
-pub const mouse_button_count = @backingInt(event.MouseButton.Button7) + 1;
 pub const text_capacity = 64;
 
 key_down: [key_count]bool = @splat(false),

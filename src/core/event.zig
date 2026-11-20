@@ -1,20 +1,10 @@
 const std = @import("std");
 
+pub const MouseButton = @import("fusion_sdk").MouseButton;
 const Window = @import("window.zig");
 const log = @import("log.zig");
 const c = @import("../c.zig");
 const glfw = c.glfw;
-
-pub const MouseButton = enum(u8) {
-    Left = 0,
-    Right = 1,
-    Middle = 2,
-    Button3 = 3,
-    Button4 = 4,
-    Button5 = 5,
-    Button6 = 6,
-    Button7 = 7,
-};
 
 pub const Key = @import("fusion_sdk").Key;
 

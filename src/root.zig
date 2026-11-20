@@ -13,6 +13,7 @@ pub const Buffer = @import("graphics/rhi/buffer.zig");
 pub const Device = @import("graphics/rhi/device.zig");
 pub const Material = @import("graphics/material.zig");
 pub const ZEvent = @import("core/event.zig").ZEvent;
+pub const Session = @import("core/session.zig");
 pub const Key = @import("core/event.zig").Key;
 pub const Window = @import("core/window.zig");
 pub const Mesh = @import("graphics/mesh.zig");
@@ -97,6 +98,7 @@ test {
     _ = @import("core/math.zig");
     _ = @import("core/event.zig");
     _ = @import("core/input.zig");
+    _ = @import("core/session.zig");
     _ = @import("scene/camera.zig");
     _ = @import("scene/component_codec.zig");
     _ = @import("scene/derive_schema.zig");

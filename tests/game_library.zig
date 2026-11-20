@@ -2,6 +2,16 @@ const std = @import("std");
 const fusion = @import("fusion_runtime");
 const testing = std.testing;
 
+const TransformComponent = fusion.components.TransformComponent;
+const MeshRenderComponent = fusion.components.MeshRenderComponent;
+
+fn countMeshes(world: *fusion.EcsWorld) usize {
+    var count: usize = 0;
+    var query = world.query(.{ .read = &.{MeshRenderComponent} });
+    while (query.each()) |_| count += 1;
+    return count;
+}
+
 test "actual sandbox DLL registers, edits, serializes, queries and updates the host world" {
     var library = try fusion.game_module.GameLibrary.open(@import("test_options").library_path);
     defer library.deinit();
@@ -15,8 +25,8 @@ test "actual sandbox DLL registers, edits, serializes, queries and updates the h
     try testing.expectEqualStrings("Keyboard Movement", codec.schema.display_name);
     try testing.expectEqual(@as(?f32, 0), codec.schema.fields[0].editor.min);
     const world = &instance.world;
-    const moving = try world.spawnWith(.{fusion.components.TransformComponent{}});
-    const stationary = try world.spawnWith(.{fusion.components.TransformComponent{}});
+    const moving = try world.spawnWith(.{TransformComponent{}});
+    const stationary = try world.spawnWith(.{TransformComponent{}});
     try codec.attachDefault(world, moving, testing.allocator);
     try codec.writeField(world, moving, testing.allocator, 1, .{ .f32 = 3 });
     try testing.expectError(error.ValueKindMismatch, codec.writeField(world, moving, testing.allocator, 1, .{ .bool = true }));
@@ -31,12 +41,63 @@ test "actual sandbox DLL registers, edits, serializes, queries and updates the h
     input.applyEvent(.{ .KeyPressed = .LeftShift });
     try world.setResource(fusion.Input, input);
     try world.setResource(fusion.DeltaTime, .{ .seconds = 0.25 });
+    try fusion.game_module.start(&instance);
     try fusion.game_module.fixedUpdate(world, &instance.command_buffer);
-    try testing.expectApproxEqAbs(@as(f32, -1.5), world.getComponent(moving, fusion.components.TransformComponent).?.position.z, 0.0001);
-    try testing.expectEqual(@as(f32, 0), world.getComponent(stationary, fusion.components.TransformComponent).?.position.z);
+    try testing.expectApproxEqAbs(@as(f32, -1.5), world.getComponent(moving, TransformComponent).?.position.z, 0.0001);
+    try testing.expectEqual(@as(f32, 0), world.getComponent(stationary, TransformComponent).?.position.z);
     // Inspector edits remain visible to the DLL on the next update.
     try codec.writeField(world, moving, testing.allocator, 1, .{ .f32 = 4 });
     try fusion.game_module.fixedUpdate(world, &instance.command_buffer);
-    try testing.expectApproxEqAbs(@as(f32, -3.5), world.getComponent(moving, fusion.components.TransformComponent).?.position.z, 0.0001);
+    try testing.expectApproxEqAbs(@as(f32, -3.5), world.getComponent(moving, TransformComponent).?.position.z, 0.0001);
     try testing.expectError(error.GameRegistrationFailed, library.bind(&instance));
+}
+
+test "actual sandbox DLL spawns and despawns entities through the command barrier" {
+    var library = try fusion.game_module.GameLibrary.open(@import("test_options").library_path);
+    defer library.deinit();
+    var schemas = fusion.scene_schema.SchemaRegistry.init(testing.allocator);
+    defer schemas.deinit();
+    var instance: fusion.World = undefined;
+    try instance.init(testing.allocator, &schemas, .{ .components = &.{}, .update_schedule = .{} });
+    defer instance.deinit();
+    try library.bind(&instance);
+    const world = &instance.world;
+    const schedule: fusion.Schedule.Spec = .{ .update = &.{fusion.game_module.fixedUpdate} };
+
+    const launcher_codec = schemas.getByName("fusion.game.ProjectileLauncher") orelse return error.MissingGameComponent;
+    const mesh_id = fusion.AssetId.parseComptime("3f2a77f1-9c44-4b7e-9b1a-2f6c1d8e5a01");
+    const launcher = try world.spawnWith(.{ TransformComponent{}, MeshRenderComponent{ .mesh = mesh_id } });
+    try launcher_codec.attachDefault(world, launcher, testing.allocator);
+    // Lifetime: long enough to survive one 0.25s step, not two.
+    try launcher_codec.writeField(world, launcher, testing.allocator, 2, .{ .f32 = 0.3 });
+
+    var input: fusion.Input = .{};
+    input.applyEvent(.{ .KeyPressed = .Space });
+    try world.setResource(fusion.Input, input);
+
+    // Space went down this step, so one projectile is queued. It gains its
+    // components when the step ends and first moves on the following step.
+    try fusion.Schedule.run(world, &instance.command_buffer, .{ .delta_time = 0.25 }, schedule);
+    try testing.expectEqual(@as(usize, 2), countMeshes(world));
+
+    var projectile: ?fusion.EntityID = null;
+    var meshes = world.query(.{ .read = &.{ MeshRenderComponent, TransformComponent } });
+    while (meshes.each()) |row| {
+        if (!row.entity().eql(launcher)) projectile = row.entity();
+    }
+    const spawned = projectile orelse return error.MissingProjectile;
+    try testing.expect(world.getComponent(spawned, MeshRenderComponent).?.mesh.eql(mesh_id));
+    try testing.expectApproxEqAbs(@as(f32, 0.25), world.getComponent(spawned, TransformComponent).?.scale.x, 0.0001);
+
+    // Holding Space is not a new press, so no second projectile is fired.
+    world.getResource(fusion.Input).beginFrame();
+    try fusion.Schedule.run(world, &instance.command_buffer, .{ .delta_time = 0.25 }, schedule);
+    try testing.expectEqual(@as(usize, 2), countMeshes(world));
+    try testing.expectApproxEqAbs(@as(f32, -1.5), world.getComponent(spawned, TransformComponent).?.position.z, 0.0001);
+
+    // Its lifetime runs out on the next step and it is despawned.
+    try fusion.Schedule.run(world, &instance.command_buffer, .{ .delta_time = 0.25 }, schedule);
+    try testing.expectEqual(@as(usize, 1), countMeshes(world));
+    try testing.expect(!world.isAlive(spawned));
+    try testing.expect(world.isAlive(launcher));
 }

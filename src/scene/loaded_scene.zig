@@ -81,11 +81,6 @@ pub fn deinit(self: *LoadedScene) void {
     self.document.deinit();
 }
 
-pub fn reset(self: *LoadedScene) !void {
-    self.instance.reset(self.context.world);
-    try self.instance.spawnEntities(self.context, &self.document);
-}
-
 const testing = std.testing;
 
 const TestSceneComponent = struct {
@@ -161,11 +156,6 @@ test "LoadedScene keeps runtime entities and components synchronized through its
     try testing.expect(world.isAlive(added_runtime));
     try loaded.removeEntity(added_entity_id);
     try testing.expect(!world.isAlive(added_runtime));
-
-    try loaded.reset();
-    const reset_entity = try loaded.instance.resolve(test_entity_id);
-    try testing.expect(world.isAlive(reset_entity));
-    try testing.expectEqual(@as(i32, 5), world.getComponent(reset_entity, TestSceneComponent).?.value);
 }
 
 test "loadDefaultScene rejects projects without a configured default scene" {
